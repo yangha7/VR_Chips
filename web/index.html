@@ -5,23 +5,45 @@
   <title>VR Chips — Comb Structure v1</title>
   <script src="libs/aframe.min.js"></script>
   <script src="libs/aframe-extras.min.js"></script>
-  <script src="libs/aframe-teleport-controls.min.js"></script>
   <script src="sem-terrain.js"></script>
+  <script src="simple-teleport.js"></script>
   <script>
-    window.addEventListener('error', (e) => {
+    const log = [];
+    function report(msg) {
+      log.push(msg);
       const el = document.getElementById('debug-status');
-      if (el) el.textContent = 'ERROR: ' + e.message;
-    });
+      if (el) el.textContent = log.join('\n');
+    }
+    window.addEventListener('error', (e) => report('ERROR: ' + e.message + ' @ ' + e.filename + ':' + e.lineno));
+    window.addEventListener('unhandledrejection', (e) => report('UNHANDLED REJECTION: ' + e.reason));
+
+    report('xr in navigator: ' + ('xr' in navigator));
+    if ('xr' in navigator) {
+      navigator.xr.isSessionSupported('immersive-vr')
+        .then((supported) => report('immersive-vr supported: ' + supported))
+        .catch((err) => report('isSessionSupported error: ' + err));
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const terrain = document.getElementById('terrain');
-      terrain.addEventListener('sem-terrain-loaded', () => {
-        document.getElementById('debug-status').textContent = 'terrain loaded OK';
-      });
+      terrain.addEventListener('sem-terrain-loaded', () => report('terrain mesh built OK'));
+
+      const sceneEl = document.querySelector('a-scene');
+      sceneEl.addEventListener('loaded', () => report('a-scene fired "loaded"'));
+      sceneEl.addEventListener('renderstart', () => report('a-scene fired "renderstart"'));
+
+      setTimeout(() => {
+        report('--- 4s check ---');
+        report('scene.hasLoaded: ' + sceneEl.hasLoaded);
+        const vrButton = document.querySelector('.a-enter-vr-button, .a-enter-vr');
+        report('enter-VR button in DOM: ' + !!vrButton);
+        if (vrButton) report('enter-VR button display: ' + getComputedStyle(vrButton).display);
+      }, 4000);
     });
   </script>
 </head>
 <body>
-  <div id="debug-status" style="position:fixed; top:0; left:0; z-index:9999; background:black; color:lime; font-family:monospace; padding:4px 8px;">loading…</div>
+  <div id="debug-status" style="position:fixed; top:0; left:0; z-index:9999; background:black; color:lime; font-family:monospace; padding:4px 8px; font-size:12px; white-space:pre-wrap; max-width:90vw;">loading…</div>
   <a-scene fog="type: linear; color: #cfe3f0; near: 15; far: 70">
 
     <a-sky color="#cfe3f0"></a-sky>
@@ -52,11 +74,13 @@
 
     <a-entity id="cameraRig" position="0 0 0" movement-controls="speed: 0.15; controls: gamepad, keyboard">
       <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
-      <a-entity id="leftHand" hand-controls="hand: left" oculus-touch-controls="hand: left"
-                teleport-controls="cameraRig: #cameraRig; teleportOrigin: #camera; button: trigger; collisionEntities: .ground">
+      <a-entity id="leftHand" laser-controls="hand: left"
+                raycaster="objects: .ground; far: 40" line="color: gold; opacity: 0.75"
+                simple-teleport="cameraRig: #cameraRig">
       </a-entity>
-      <a-entity id="rightHand" hand-controls="hand: right" oculus-touch-controls="hand: right"
-                teleport-controls="cameraRig: #cameraRig; teleportOrigin: #camera; button: trigger; collisionEntities: .ground">
+      <a-entity id="rightHand" laser-controls="hand: right"
+                raycaster="objects: .ground; far: 40" line="color: gold; opacity: 0.75"
+                simple-teleport="cameraRig: #cameraRig">
       </a-entity>
     </a-entity>
 
