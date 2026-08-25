@@ -1,21 +1,23 @@
 /* global AFRAME, THREE */
 
-// Point-and-fly locomotion instead of teleport:
-// - Hold trigger: glide continuously toward wherever the controller points.
-// - Thumbstick up/down: rise/descend (independent of look/point direction),
-//   so you can climb above the structure for a top-down overview, or
-//   descend into it, without needing to re-aim.
+// Point-and-fly locomotion:
+// - Hold trigger: glide continuously toward wherever the controller points
+//   (so pointing up and holding trigger climbs above the structure).
+// - Thumbstick up/down: dolly forward/back along where you're looking
+//   ("zoom" — get closer to inspect detail, or pull back for the big
+//   picture) — independent of which way the controller is pointed.
 AFRAME.registerComponent('fly-controls', {
   schema: {
     cameraRig: { type: 'selector' },
+    camera: { type: 'selector' },
     flySpeed: { type: 'number', default: 3 },
-    zoomSpeed: { type: 'number', default: 3 },
+    zoomSpeed: { type: 'number', default: 4 },
   },
 
   init() {
     this.flying = false;
     this.axisY = 0;
-    this.forward = new THREE.Vector3();
+    this.direction = new THREE.Vector3();
 
     this.onTriggerDown = () => { this.flying = true; };
     this.onTriggerUp = () => { this.flying = false; };
@@ -38,14 +40,13 @@ AFRAME.registerComponent('fly-controls', {
     const rig = this.data.cameraRig.object3D;
 
     if (this.flying) {
-      // getWorldDirection() returns the object's world -Z direction, which
-      // is the same "forward" laser-controls uses for its pointing ray.
-      this.el.object3D.getWorldDirection(this.forward);
-      rig.position.addScaledVector(this.forward, this.data.flySpeed * dt);
+      this.el.object3D.getWorldDirection(this.direction);
+      rig.position.addScaledVector(this.direction, -this.data.flySpeed * dt);
     }
 
     if (Math.abs(this.axisY) > 0.05) {
-      rig.position.y -= this.axisY * this.data.zoomSpeed * dt;
+      this.data.camera.object3D.getWorldDirection(this.direction);
+      rig.position.addScaledVector(this.direction, -this.axisY * this.data.zoomSpeed * dt);
     }
   },
 

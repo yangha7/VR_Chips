@@ -69,7 +69,7 @@
     <a-entity position="0 1.9 -3"
               geometry="primitive: plane; width: 3.8; height: 2.0"
               material="color: #ffffff; opacity: 0.92; shader: flat"
-              text="value: SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: rise / descend;
+              text="value: SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom in / out (moves along where you look);
                     width: 3.6; align: center; color: #111111; wrapCount: 38">
     </a-entity>
 
@@ -77,11 +77,11 @@
       <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
       <a-entity id="leftHand" laser-controls="hand: left"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig">
+                fly-controls="cameraRig: #cameraRig; camera: #camera">
       </a-entity>
       <a-entity id="rightHand" laser-controls="hand: right"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig">
+                fly-controls="cameraRig: #cameraRig; camera: #camera">
       </a-entity>
     </a-entity>
 
