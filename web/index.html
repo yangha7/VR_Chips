@@ -14,7 +14,6 @@
       const el = document.getElementById('debug-status');
       if (el) el.textContent = log.join('\n');
     }
-    window.reportDebug = report;
     window.addEventListener('error', (e) => report('ERROR: ' + e.message + ' @ ' + e.filename + ':' + e.lineno));
     window.addEventListener('unhandledrejection', (e) => report('UNHANDLED REJECTION: ' + e.reason));
 
@@ -78,11 +77,11 @@
       <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
       <a-entity id="leftHand" laser-controls="hand: left"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain">
+                fly-controls="cameraRig: #cameraRig; camera: #camera">
       </a-entity>
       <a-entity id="rightHand" laser-controls="hand: right"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain">
+                fly-controls="cameraRig: #cameraRig; camera: #camera">
       </a-entity>
     </a-entity>
 
