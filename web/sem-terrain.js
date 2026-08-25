@@ -69,6 +69,29 @@ AFRAME.registerComponent('sem-terrain', {
     // GPU headroom for comfortable frame rate takes priority over lighting fidelity.
     const mesh = new THREE.Mesh(geometry, material);
     this.el.setObject3D('mesh', mesh);
+
+    // Keep the sampled grid around for cheap height lookups (collision),
+    // so callers don't need to raycast against the full triangle mesh.
+    this.heightPixels = pixels;
+    this.heightResX = resX;
+    this.heightResY = resY;
+
     this.el.emit('sem-terrain-loaded');
+  },
+
+  // Returns the terrain height at a world-space (x, z), or 0 if outside
+  // this terrain's footprint. Cheap O(1) lookup — no raycasting.
+  getHeightAt(worldX, worldZ) {
+    if (!this.heightPixels) return 0;
+    const local = new THREE.Vector3(worldX, 0, worldZ);
+    this.el.object3D.worldToLocal(local);
+    const { width, depth, maxHeight } = this.data;
+    const u = (local.x + width / 2) / width;
+    const v = (local.z + depth / 2) / depth;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+    const col = Math.min(this.heightResX - 1, Math.floor(u * this.heightResX));
+    const row = Math.min(this.heightResY - 1, Math.floor(v * this.heightResY));
+    const brightness = this.heightPixels[(row * this.heightResX + col) * 4] / 255;
+    return brightness * maxHeight;
   },
 });
