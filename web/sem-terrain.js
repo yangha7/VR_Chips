@@ -10,7 +10,7 @@ AFRAME.registerComponent('sem-terrain', {
     width: { type: 'number', default: 30 },
     depth: { type: 'number', default: 24 },
     maxHeight: { type: 'number', default: 5 },
-    resolution: { type: 'int', default: 160 },
+    resolution: { type: 'int', default: 260 },
   },
 
   init() {
@@ -53,11 +53,16 @@ AFRAME.registerComponent('sem-terrain', {
     const loader = new THREE.TextureLoader();
     const colorMap = loader.load(this.data.texture);
     colorMap.colorSpace = THREE.SRGBColorSpace;
+    colorMap.anisotropy = 8;
 
+    // Steep walls in the relief can face almost any direction once you're
+    // walking among them and looking up/around — single-sided faces would
+    // disappear from certain angles, so render both sides.
     const material = new THREE.MeshStandardMaterial({
       map: colorMap,
       roughness: 0.95,
       metalness: 0.05,
+      side: THREE.DoubleSide,
     });
 
     // No shadow casting on this mesh for v1 — keeping the standalone Quest 3

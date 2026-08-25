@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
-from scipy.ndimage import gaussian_filter
+from PIL import Image, ImageFilter
+from scipy.ndimage import gaussian_filter, grey_dilation
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "assets" / "processed"
@@ -54,9 +54,18 @@ def main():
     )
     height_arr = np.array(upsampled, dtype=np.float32)
 
-    # Denoise before using brightness as pseudo-height, so the SEM grain
-    # noise doesn't turn into a jagged, nauseating terrain.
-    height_arr = gaussian_filter(height_arr, sigma=2.0)
+    # Oblique SEM shots light the edge of a raised feature brightly and leave
+    # the rest of its top surface a similar mid-gray to the trench floor —
+    # using brightness as height directly turns those edges into thin knife
+    # spikes rather than the flat-top ridges the real structure has. Grayscale
+    # dilation spreads each bright edge into a plateau spanning roughly one
+    # structure width, which reads as a walkable flat-top wall instead.
+    plateau_radius = 6  # ~ half a comb-finger width at this upsample scale
+    height_arr = grey_dilation(height_arr, size=(plateau_radius * 2 + 1,) * 2)
+
+    # Light final smoothing to soften the plateau's corners — this is just
+    # anti-aliasing, not the main shaping step, so keep it small.
+    height_arr = gaussian_filter(height_arr, sigma=1.0)
 
     # Normalize full range and encode as 16-bit for smoother displacement steps.
     height_arr -= height_arr.min()
@@ -66,13 +75,21 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     Image.fromarray(height_16, mode="I;16").save(OUT_DIR / f"{name}_height.png")
 
-    # Texture: same crop, original resolution color/gray, no blur — keep it sharp.
+    # Texture: same crop, upscaled and mildly sharpened. This can't add real
+    # detail beyond the source resolution, but it keeps edges crisper than a
+    # plain bicubic stretch would once it's wrapped over many meters of terrain.
     texture_src = Image.open(src_path).convert("RGB")
     texture_crop = texture_src.crop((0, 0, texture_src.width, crop_h))
-    texture_crop.save(OUT_DIR / f"{name}_texture.jpg", quality=92)
+    texture_upsampled = texture_crop.resize(
+        (texture_crop.width * scale, texture_crop.height * scale), Image.BICUBIC
+    )
+    texture_sharpened = texture_upsampled.filter(
+        ImageFilter.UnsharpMask(radius=2, percent=120, threshold=2)
+    )
+    texture_sharpened.save(OUT_DIR / f"{name}_texture.jpg", quality=92)
 
     print(f"Wrote {OUT_DIR / f'{name}_height.png'} ({upsampled.size})")
-    print(f"Wrote {OUT_DIR / f'{name}_texture.jpg'} ({texture_crop.size})")
+    print(f"Wrote {OUT_DIR / f'{name}_texture.jpg'} ({texture_sharpened.size})")
 
 
 if __name__ == "__main__":
