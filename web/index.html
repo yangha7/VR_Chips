@@ -6,7 +6,7 @@
   <script src="libs/aframe.min.js"></script>
   <script src="libs/aframe-extras.min.js"></script>
   <script src="sem-terrain.js"></script>
-  <script src="simple-teleport.js"></script>
+  <script src="fly-controls.js"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -69,19 +69,19 @@
     <a-entity position="0 1.9 -3"
               geometry="primitive: plane; width: 3.8; height: 2.0"
               material="color: #ffffff; opacity: 0.92; shader: flat"
-              text="value: SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nTrigger: point + pull to teleport there\nThumbstick: walk continuously (use for tight gaps);
+              text="value: SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: rise / descend;
                     width: 3.6; align: center; color: #111111; wrapCount: 38">
     </a-entity>
 
-    <a-entity id="cameraRig" position="0 0 0" movement-controls="speed: 0.15; controls: gamepad, keyboard">
+    <a-entity id="cameraRig" position="0 0 0">
       <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
       <a-entity id="leftHand" laser-controls="hand: left"
-                raycaster="objects: .ground; far: 40" line="color: gold; opacity: 0.75"
-                simple-teleport="cameraRig: #cameraRig">
+                raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
+                fly-controls="cameraRig: #cameraRig">
       </a-entity>
       <a-entity id="rightHand" laser-controls="hand: right"
-                raycaster="objects: .ground; far: 40" line="color: gold; opacity: 0.75"
-                simple-teleport="cameraRig: #cameraRig">
+                raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
+                fly-controls="cameraRig: #cameraRig">
       </a-entity>
     </a-entity>
 
