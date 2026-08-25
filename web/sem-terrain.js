@@ -80,14 +80,18 @@ AFRAME.registerComponent('sem-terrain', {
   },
 
   // Returns the terrain height at a world-space (x, z), or 0 if outside
-  // this terrain's footprint. Cheap O(1) lookup — no raycasting.
+  // this terrain's footprint. Cheap O(1) lookup — no raycasting, and no
+  // matrix math (this entity has no rotation/scale, only a position
+  // offset, so subtracting it directly is enough and avoids relying on
+  // the object3D's matrixWorld being up to date on this exact tick).
   getHeightAt(worldX, worldZ) {
     if (!this.heightPixels) return 0;
-    const local = new THREE.Vector3(worldX, 0, worldZ);
-    this.el.object3D.worldToLocal(local);
+    const pos = this.el.object3D.position;
+    const localX = worldX - pos.x;
+    const localZ = worldZ - pos.z;
     const { width, depth, maxHeight } = this.data;
-    const u = (local.x + width / 2) / width;
-    const v = (local.z + depth / 2) / depth;
+    const u = (localX + width / 2) / width;
+    const v = (localZ + depth / 2) / depth;
     if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
     const col = Math.min(this.heightResX - 1, Math.floor(u * this.heightResX));
     const row = Math.min(this.heightResY - 1, Math.floor(v * this.heightResY));

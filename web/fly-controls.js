@@ -57,6 +57,19 @@ AFRAME.registerComponent('fly-controls', {
 
   tick(time, deltaTime) {
     if (!deltaTime) return;
+    // A component's tick() runs inside the render loop with no surrounding
+    // try/catch from A-Frame -- one uncaught error here has previously
+    // broken all controller input silently. Never let that happen again.
+    try {
+      this.tickMove(deltaTime);
+    } catch (err) {
+      console.error('fly-controls tick error:', err);
+      if (window.reportDebug) window.reportDebug('fly-controls ERROR: ' + err.message);
+      this.flying = false;
+    }
+  },
+
+  tickMove(deltaTime) {
     const dt = deltaTime / 1000;
     const rig = this.data.cameraRig.object3D;
 
