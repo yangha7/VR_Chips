@@ -8,8 +8,8 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=4"></script>
-  <script src="fly-controls.js?v=4"></script>
+  <script src="sem-terrain.js?v=5"></script>
+  <script src="fly-controls.js?v=5"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -81,11 +81,11 @@
       <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
       <a-entity id="leftHand" laser-controls="hand: left"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera">
+                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain">
       </a-entity>
       <a-entity id="rightHand" laser-controls="hand: right"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera">
+                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain">
       </a-entity>
     </a-entity>
 
