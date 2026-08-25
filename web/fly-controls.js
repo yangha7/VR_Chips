@@ -4,7 +4,7 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 5;
+window.FLY_CONTROLS_VERSION = 6;
 
 // Point-and-fly locomotion:
 // - Hold trigger: glide continuously toward wherever the controller points
@@ -76,6 +76,10 @@ AFRAME.registerComponent('fly-controls', {
   },
 
   tickMove(deltaTime) {
+    // While the menu is open, the trigger and thumbstick are repurposed for
+    // menu selection/paging (see menu-controller.js) -- don't also fly/zoom.
+    if (window.menuOpen) return;
+
     const dt = deltaTime / 1000;
     const rig = this.data.cameraRig.object3D;
 

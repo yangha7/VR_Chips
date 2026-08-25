@@ -8,8 +8,9 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=5"></script>
-  <script src="fly-controls.js?v=5"></script>
+  <script src="sem-terrain.js?v=6"></script>
+  <script src="fly-controls.js?v=6"></script>
+  <script src="menu-controller.js?v=6"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -17,10 +18,13 @@
       const el = document.getElementById('debug-status');
       if (el) el.textContent = log.join('\n');
     }
+    window.reportDebug = report;
+    window.menuOpen = false;
     window.addEventListener('error', (e) => report('ERROR: ' + e.message + ' @ ' + e.filename + ':' + e.lineno));
     window.addEventListener('unhandledrejection', (e) => report('UNHANDLED REJECTION: ' + e.reason));
 
     report('fly-controls script version: ' + (window.FLY_CONTROLS_VERSION || 'MISSING (script did not load!)'));
+    report('menu-controller script version: ' + (window.MENU_CONTROLLER_VERSION || 'MISSING (script did not load!)'));
     report('xr in navigator: ' + ('xr' in navigator));
     if ('xr' in navigator) {
       navigator.xr.isSessionSupported('immersive-vr')
@@ -66,26 +70,54 @@
               position="0 0.01 -20"
               sem-terrain="heightmap: ../assets/processed/comb_height.png;
                            texture: ../assets/processed/comb_texture.jpg;
-                           width: 34; depth: 27; maxHeight: 5; resolution: 260">
+                           width: 34; maxHeight: 5; resolution: 260">
     </a-entity>
 
-    <!-- Single combined info+controls panel, visible immediately from spawn. -->
+    <!-- Compact always-visible hint at spawn, so first-time users don't
+         need to already know about the grip button to get started. -->
     <a-entity position="0 1.9 -3"
-              geometry="primitive: plane; width: 3.8; height: 2.0"
-              material="color: #ffffff; opacity: 0.92; shader: flat"
-              text="value: SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom in / out (moves along where you look);
-                    width: 3.6; align: center; color: #111111; wrapCount: 38">
+              geometry="primitive: plane; width: 3.4; height: 0.9"
+              material="color: #ffffff; opacity: 0.85; shader: flat"
+              text="value: Grip: open menu (help / image / choose sample)\nTrigger: fly -- Thumbstick: zoom;
+                    width: 3.2; align: center; color: #111111; wrapCount: 40">
+    </a-entity>
+
+    <!-- Floating menu: hidden until grip is pressed, then repositioned in
+         front of wherever the user currently is (see menu-controller.js). -->
+    <a-entity id="menu" visible="false">
+      <a-entity geometry="primitive: plane; width: 4.0; height: 2.6"
+                material="color: #ffffff; opacity: 0.95; shader: flat"></a-entity>
+
+      <a-entity id="menuPageHelp" position="0 0 0.01" visible="true"
+                text="value: ; width: 3.6; align: center; color: #111111; wrapCount: 38">
+      </a-entity>
+
+      <a-entity id="menuPageImage" position="0 0 0.01" visible="false">
+        <a-entity id="menuImagePlane"
+                  geometry="primitive: plane; width: 3.6; height: 2.2"
+                  material="src: ../assets/processed/comb_texture.jpg; shader: flat"></a-entity>
+      </a-entity>
+
+      <a-entity id="menuPageDatasets" position="0 0.1 0.01" visible="false"
+                text="value: ; width: 3.4; align: left; color: #111111; wrapCount: 40">
+      </a-entity>
+
+      <a-entity position="0 -1.15 0.01"
+                text="value: thumbstick left/right: switch page; color: #666666; align: center; width: 3.4; wrapCount: 44">
+      </a-entity>
     </a-entity>
 
     <a-entity id="cameraRig" position="0 0 0">
       <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
       <a-entity id="leftHand" laser-controls="hand: left"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain">
+                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain"
+                menu-controller="menu: #menu; camera: #camera; terrain: #terrain">
       </a-entity>
       <a-entity id="rightHand" laser-controls="hand: right"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain">
+                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain"
+                menu-controller="menu: #menu; camera: #camera; terrain: #terrain">
       </a-entity>
     </a-entity>
 
