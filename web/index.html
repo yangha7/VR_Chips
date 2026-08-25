@@ -5,8 +5,11 @@
   <title>VR Chips — Comb Structure v1</title>
   <script src="libs/aframe.min.js"></script>
   <script src="libs/aframe-extras.min.js"></script>
-  <script src="sem-terrain.js"></script>
-  <script src="fly-controls.js"></script>
+  <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
+       browser has repeatedly kept serving a stale cached copy of these
+       after a plain reload, which looks identical to an actual bug. -->
+  <script src="sem-terrain.js?v=4"></script>
+  <script src="fly-controls.js?v=4"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -17,6 +20,7 @@
     window.addEventListener('error', (e) => report('ERROR: ' + e.message + ' @ ' + e.filename + ':' + e.lineno));
     window.addEventListener('unhandledrejection', (e) => report('UNHANDLED REJECTION: ' + e.reason));
 
+    report('fly-controls script version: ' + (window.FLY_CONTROLS_VERSION || 'MISSING (script did not load!)'));
     report('xr in navigator: ' + ('xr' in navigator));
     if ('xr' in navigator) {
       navigator.xr.isSessionSupported('immersive-vr')
