@@ -4,7 +4,7 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 10;
+window.FLY_CONTROLS_VERSION = 11;
 
 // Point-and-fly locomotion:
 // - Hold trigger: glide continuously toward wherever the controller points
@@ -26,7 +26,12 @@ AFRAME.registerComponent('fly-controls', {
     terrain: { type: 'selector' },
     flySpeed: { type: 'number', default: 3 },
     zoomSpeed: { type: 'number', default: 4 },
-    clearance: { type: 'number', default: 0.3 },
+    // Only blocks going strictly below the surface (i.e. underground/inside
+    // a wall) -- not a "stand this high above the ground" requirement.
+    // This was 0.3 before, which silently blocked ALL ground-level
+    // movement, since you spawn AT surfaceHeight (0) and a natural
+    // slightly-downward look angle keeps candidate.y at or below that too.
+    clearance: { type: 'number', default: 0 },
   },
 
   init() {
@@ -97,7 +102,15 @@ AFRAME.registerComponent('fly-controls', {
     }
 
     if (Math.abs(this.axisY) > 0.05) {
+      // Flattened to horizontal-only: a natural, slightly-downward gaze
+      // while walking would otherwise add a small negative Y component
+      // every frame, which the ground-collision check in tryMove would
+      // then block -- looking like "zoom barely moves" rather than an
+      // outright failure. Climbing/descending is what fly (trigger +
+      // pointing up/down) is for; zoom is just a horizontal dolly.
       this.direction.set(0, 0, -1).applyQuaternion(this.data.camera.object3D.quaternion);
+      this.direction.y = 0;
+      if (this.direction.lengthSq() > 1e-6) this.direction.normalize();
       const d = this.direction.multiplyScalar(-this.axisY * this.data.zoomSpeed * dt);
       this.tryMove(rig, d.x, d.y, d.z);
     }
