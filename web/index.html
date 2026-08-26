@@ -8,9 +8,9 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=6"></script>
-  <script src="fly-controls.js?v=6"></script>
-  <script src="menu-controller.js?v=6"></script>
+  <script src="sem-terrain.js?v=7"></script>
+  <script src="fly-controls.js?v=7"></script>
+  <script src="menu-controller.js?v=7"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -112,12 +112,12 @@
       <a-entity id="leftHand" laser-controls="hand: left"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
                 fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain"
-                menu-controller="menu: #menu; camera: #camera; terrain: #terrain">
+                menu-controller="menu: #menu; camera: #camera; cameraRig: #cameraRig; terrain: #terrain">
       </a-entity>
       <a-entity id="rightHand" laser-controls="hand: right"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
                 fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain"
-                menu-controller="menu: #menu; camera: #camera; terrain: #terrain">
+                menu-controller="menu: #menu; camera: #camera; cameraRig: #cameraRig; terrain: #terrain">
       </a-entity>
     </a-entity>
 

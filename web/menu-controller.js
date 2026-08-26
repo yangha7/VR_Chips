@@ -1,6 +1,6 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 1;
+window.MENU_CONTROLLER_VERSION = 2;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
@@ -17,6 +17,7 @@ AFRAME.registerComponent('menu-controller', {
   schema: {
     menu: { type: 'selector' },
     camera: { type: 'selector' },
+    cameraRig: { type: 'selector' },
     terrain: { type: 'selector' },
   },
 
@@ -25,20 +26,30 @@ AFRAME.registerComponent('menu-controller', {
     this.selectIndex = 0;
     this.prevAxisX = 0;
     this.prevAxisY = 0;
-    this.tmpPos = new THREE.Vector3();
-    this.tmpDir = new THREE.Vector3();
 
-    this.onGripDown = () => this.toggleMenu();
-    this.onTriggerDown = () => {
+    this.onGripDown = () => this.safely('gripdown', () => this.toggleMenu());
+    this.onTriggerDown = () => this.safely('triggerdown', () => {
       if (this.isOpen() && this.page === 2) this.confirmSelection();
-    };
-    this.onAxisMove = (evt) => this.handleAxisMove(evt.detail.axis);
+    });
+    this.onAxisMove = (evt) => this.safely('axismove', () => this.handleAxisMove(evt.detail.axis));
 
     this.el.addEventListener('gripdown', this.onGripDown);
     this.el.addEventListener('triggerdown', this.onTriggerDown);
     this.el.addEventListener('axismove', this.onAxisMove);
 
     this.renderHelpPage();
+  },
+
+  // Every controller-event handler runs outside A-Frame's own try/catch, so
+  // one bug here has previously frozen all controller input silently (twice
+  // now, with fly-controls). Never let that happen again -- log and move on.
+  safely(label, fn) {
+    try {
+      fn();
+    } catch (err) {
+      console.error('menu-controller ' + label + ' error:', err);
+      if (window.reportDebug) window.reportDebug('menu-controller ' + label + ' ERROR: ' + err.message);
+    }
   },
 
   isOpen() {
@@ -56,19 +67,32 @@ AFRAME.registerComponent('menu-controller', {
     }
   },
 
+  // Deliberately avoids THREE.Object3D.getWorldPosition/lookAt/rotateY --
+  // those touch matrixWorld/quaternion internals that have twice now thrown
+  // "cannot read properties of undefined (reading 'quaternion')" and frozen
+  // all controller input. This uses only plain vector math and setting
+  // .rotation directly (the same pattern already used safely throughout
+  // this scene's static entities), which never touches those code paths.
   positionInFrontOfCamera() {
-    const camObj = this.data.camera.object3D;
-    camObj.getWorldPosition(this.tmpPos);
-    camObj.getWorldDirection(this.tmpDir);
-    this.tmpDir.y = 0;
-    if (this.tmpDir.lengthSq() < 1e-6) this.tmpDir.set(0, 0, -1);
-    this.tmpDir.normalize();
+    const rigPos = this.data.cameraRig.object3D.position;
+    const camLocalPos = this.data.camera.object3D.position;
+    const camWorldX = rigPos.x + camLocalPos.x;
+    const camWorldY = rigPos.y + camLocalPos.y;
+    const camWorldZ = rigPos.z + camLocalPos.z;
+
+    const dir = new THREE.Vector3();
+    this.data.camera.object3D.getWorldDirection(dir); // already proven safe elsewhere in this app
+    dir.y = 0;
+    if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1);
+    dir.normalize();
 
     const menuObj = this.data.menu.object3D;
-    menuObj.position.copy(this.tmpPos).addScaledVector(this.tmpDir, 1.6);
-    menuObj.position.y = this.tmpPos.y;
-    menuObj.lookAt(this.tmpPos.x, menuObj.position.y, this.tmpPos.z);
-    menuObj.rotateY(Math.PI); // lookAt points -Z at the target; the plane's front is +Z.
+    menuObj.position.set(camWorldX + dir.x * 1.6, camWorldY, camWorldZ + dir.z * 1.6);
+
+    // Face the plane's front (+Z) back toward the camera.
+    const dx = camWorldX - menuObj.position.x;
+    const dz = camWorldZ - menuObj.position.z;
+    menuObj.rotation.set(0, Math.atan2(dx, dz), 0);
   },
 
   handleAxisMove(axes) {
