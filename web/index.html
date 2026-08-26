@@ -8,9 +8,9 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=11"></script>
-  <script src="fly-controls.js?v=11"></script>
-  <script src="menu-controller.js?v=11"></script>
+  <script src="sem-terrain.js?v=12"></script>
+  <script src="fly-controls.js?v=12"></script>
+  <script src="menu-controller.js?v=12"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -48,17 +48,19 @@
         if (vrButton) report('enter-VR button display: ' + getComputedStyle(vrButton).display);
       }, 4000);
 
-      // Confirm oculus-touch-controls' resolved model setting whenever a
-      // controller actually connects, instead of trusting the HTML
-      // attribute took effect -- laser-controls dynamically re-attaches
-      // this component on connect and may not preserve it.
+      // laser-controls auto-attaches a generic `cursor` component bound to
+      // triggerdown/triggerup for click-style interaction with raycaster
+      // targets (found directly in the aframe.min.js source). We don't use
+      // that click system -- fly-controls has its own triggerdown listener
+      // -- and something inside cursor's own click handling has been the
+      // actual source of the "reading 'quaternion'" crash that only ever
+      // happened on trigger, never grip or thumbstick. Remove it entirely.
       ['leftHand', 'rightHand'].forEach((id) => {
         const el = document.getElementById(id);
         el.addEventListener('controllerconnected', (e) => {
           setTimeout(() => {
-            const comp = el.components['oculus-touch-controls'];
-            report(id + ' controllerconnected, name=' + (e.detail && e.detail.name) +
-                   ', resolved model=' + (comp ? comp.data.model : 'NO COMPONENT'));
+            el.removeAttribute('cursor');
+            report(id + ' controllerconnected, name=' + (e.detail && e.detail.name) + ', cursor component removed');
           }, 200);
         });
       });
