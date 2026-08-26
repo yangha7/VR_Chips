@@ -4,7 +4,7 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 9;
+window.FLY_CONTROLS_VERSION = 10;
 
 // Point-and-fly locomotion:
 // - Hold trigger: glide continuously toward wherever the controller points

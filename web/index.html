@@ -8,9 +8,9 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=9"></script>
-  <script src="fly-controls.js?v=9"></script>
-  <script src="menu-controller.js?v=9"></script>
+  <script src="sem-terrain.js?v=10"></script>
+  <script src="fly-controls.js?v=10"></script>
+  <script src="menu-controller.js?v=10"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -47,6 +47,21 @@
         report('enter-VR button in DOM: ' + !!vrButton);
         if (vrButton) report('enter-VR button display: ' + getComputedStyle(vrButton).display);
       }, 4000);
+
+      // Confirm oculus-touch-controls' resolved model setting whenever a
+      // controller actually connects, instead of trusting the HTML
+      // attribute took effect -- laser-controls dynamically re-attaches
+      // this component on connect and may not preserve it.
+      ['leftHand', 'rightHand'].forEach((id) => {
+        const el = document.getElementById(id);
+        el.addEventListener('controllerconnected', (e) => {
+          setTimeout(() => {
+            const comp = el.components['oculus-touch-controls'];
+            report(id + ' controllerconnected, name=' + (e.detail && e.detail.name) +
+                   ', resolved model=' + (comp ? comp.data.model : 'NO COMPONENT'));
+          }, 200);
+        });
+      });
     });
   </script>
 </head>

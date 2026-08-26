@@ -1,6 +1,6 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 4;
+window.MENU_CONTROLLER_VERSION = 5;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
