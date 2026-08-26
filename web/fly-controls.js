@@ -4,7 +4,7 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 8;
+window.FLY_CONTROLS_VERSION = 9;
 
 // Point-and-fly locomotion:
 // - Hold trigger: glide continuously toward wherever the controller points
@@ -84,13 +84,20 @@ AFRAME.registerComponent('fly-controls', {
     const rig = this.data.cameraRig.object3D;
 
     if (this.flying) {
-      this.el.object3D.getWorldDirection(this.direction);
+      // Deliberately not using getWorldDirection() -- it calls
+      // updateWorldMatrix(), which walks the parent chain and has been the
+      // repeated source of "cannot read properties of undefined (reading
+      // 'quaternion')" crashes on this app's Quest 3 WebXR session. Both
+      // this controller entity and the camera sit directly under cameraRig,
+      // which is never rotated, so local quaternion == world quaternion
+      // here -- applying it directly avoids that code path entirely.
+      this.direction.set(0, 0, -1).applyQuaternion(this.el.object3D.quaternion);
       const d = this.direction.multiplyScalar(-this.data.flySpeed * dt);
       this.tryMove(rig, d.x, d.y, d.z);
     }
 
     if (Math.abs(this.axisY) > 0.05) {
-      this.data.camera.object3D.getWorldDirection(this.direction);
+      this.direction.set(0, 0, -1).applyQuaternion(this.data.camera.object3D.quaternion);
       const d = this.direction.multiplyScalar(-this.axisY * this.data.zoomSpeed * dt);
       this.tryMove(rig, d.x, d.y, d.z);
     }
