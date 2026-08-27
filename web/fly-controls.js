@@ -4,7 +4,7 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 14;
+window.FLY_CONTROLS_VERSION = 15;
 
 // Point-and-fly locomotion:
 // - Hold the A/X button: glide continuously toward wherever the controller
@@ -89,10 +89,30 @@ AFRAME.registerComponent('fly-controls', {
     // try/catch from A-Frame -- one uncaught error here previously broke
     // all controller input silently. Never let that happen again.
     try {
+      this.diagnoseButtons();
       this.tickMove(deltaTime);
     } catch (err) {
       console.error('fly-controls tick error:', err);
       if (window.reportDebug) window.reportDebug('fly-controls ERROR: ' + err.message);
+    }
+  },
+
+  // TEMPORARY: reports which raw gamepad.buttons[] index changes state, so
+  // we can see the true index for a given physical button instead of
+  // guessing from A-Frame's internal (possibly different) name mapping.
+  diagnoseButtons() {
+    const trackedControls = this.el.components['tracked-controls'];
+    const gamepad = trackedControls && trackedControls.controller && trackedControls.controller.gamepad;
+    if (!gamepad) return;
+    if (!this.prevButtonStates) this.prevButtonStates = [];
+    for (let i = 0; i < gamepad.buttons.length; i++) {
+      const pressed = gamepad.buttons[i].pressed;
+      if (pressed !== this.prevButtonStates[i]) {
+        if (window.reportDebug) {
+          window.reportDebug(this.el.id + ' button[' + i + '] ' + (pressed ? 'DOWN' : 'up'));
+        }
+        this.prevButtonStates[i] = pressed;
+      }
     }
   },
 
