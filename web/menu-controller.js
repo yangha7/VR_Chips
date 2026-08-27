@@ -1,6 +1,6 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 9;
+window.MENU_CONTROLLER_VERSION = 10;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
@@ -11,7 +11,7 @@ const SEM_DATASETS = [
   { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg' },
 ];
 
-const HELP_TEXT = "SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold A/X button: fly toward where you're pointing\nThumbstick up/down: zoom in / out (moves along where you look)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nA/X button: confirm on the sample-picker page";
+const HELP_TEXT = "SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom in / out (moves along where you look)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nTrigger: confirm on the sample-picker page";
 
 AFRAME.registerComponent('menu-controller', {
   schema: {
@@ -37,14 +37,15 @@ AFRAME.registerComponent('menu-controller', {
     this.renderHelpPage();
   },
 
-  // Uses the A/X button (index 4), not trigger -- see fly-controls.js for
-  // why trigger is avoided entirely in this app. Polling the raw WebXR
-  // Gamepad state directly for the rising edge.
+  // Trigger, via raw Gamepad polling for the rising edge -- menu-controller
+  // never touched the terrain-collision code that turned out to be the
+  // actual source of the trigger-adjacent crashes in fly-controls, so
+  // trigger itself is fine here.
   tick() {
     this.safely('tick', () => {
       const trackedControls = this.el.components['tracked-controls'];
       const gamepad = trackedControls && trackedControls.controller && trackedControls.controller.gamepad;
-      const pressed = !!(gamepad && gamepad.buttons[4] && gamepad.buttons[4].pressed);
+      const pressed = !!(gamepad && gamepad.buttons[0] && gamepad.buttons[0].pressed);
       if (pressed && !this.prevTriggerPressed && this.isOpen() && this.page === 2) {
         this.confirmSelection();
       }
@@ -141,7 +142,7 @@ AFRAME.registerComponent('menu-controller', {
 
   renderDatasetList() {
     const lines = SEM_DATASETS.map((d, i) => (i === this.selectIndex ? '> ' : '   ') + d.label);
-    lines.push('', '(A/X button to load)');
+    lines.push('', '(trigger to load)');
     document.getElementById('menuPageDatasets').setAttribute('text', 'value', lines.join('\n'));
   },
 

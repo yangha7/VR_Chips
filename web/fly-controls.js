@@ -4,55 +4,40 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 15;
+window.FLY_CONTROLS_VERSION = 16;
 
 // Point-and-fly locomotion:
-// - Hold the A/X button: glide continuously toward wherever the controller
-//   points (so pointing up and holding it climbs above the structure).
-//   Deliberately NOT the trigger -- something in A-Frame's own per-frame
-//   processing of the trigger button crashes on this app's Quest 3 WebXR
-//   session regardless of whether our code listens for it at all (confirmed
-//   by bypassing the triggerdown/triggerup events entirely and polling the
-//   raw Gamepad state instead, which did not help). Grip and thumbstick
-//   both work reliably, so the fly action moved to another ordinary button
-//   (index 4 -- A/X) rather than continuing to chase the trigger bug.
+// - Hold trigger: glide continuously toward wherever the controller points
+//   (so pointing up and holding trigger climbs above the structure).
 // - Thumbstick up/down: dolly forward/back along where you're looking
 //   ("zoom" — get closer to inspect detail, or pull back for the big
 //   picture) — independent of which way the controller is pointed.
 //
-// Collision: rather than modeling the terrain as solid volume (which would
-// need real thickness geometry — more triangles, more GPU cost — and Quest
-// 3's mobile GPU would feel that), movement is simply blocked from crossing
-// below the terrain's local height. That avoids the confusing "inside the
-// hollow wall" view for the cost of one cheap height lookup per frame,
-// not any extra rendering work.
+// No wall collision here (deliberately) -- this is back to the exact logic
+// confirmed working before the terrain-collision feature was added. That
+// feature (tryMove/getHeightAt checking terrain height every tick) was the
+// only structural change present in every version since flying started
+// crashing with "cannot read properties of undefined (reading
+// 'quaternion')" -- despite many rounds chasing the trigger event system,
+// the cursor component, controller models, and button-index mapping, none
+// of which were actually the cause. You can fly through walls again for
+// now; that's a real tradeoff, not an oversight, until collision gets
+// revisited from scratch with fresh eyes.
 AFRAME.registerComponent('fly-controls', {
   schema: {
     cameraRig: { type: 'selector' },
     camera: { type: 'selector' },
-    terrain: { type: 'selector' },
     flySpeed: { type: 'number', default: 3 },
     zoomSpeed: { type: 'number', default: 4 },
-    // Only blocks going strictly below the surface (i.e. underground/inside
-    // a wall) -- not a "stand this high above the ground" requirement.
-    // This was 0.3 before, which silently blocked ALL ground-level
-    // movement, since you spawn AT surfaceHeight (0) and a natural
-    // slightly-downward look angle keeps candidate.y at or below that too.
-    clearance: { type: 'number', default: 0 },
   },
 
   init() {
+    this.flying = false;
     this.axisY = 0;
     this.direction = new THREE.Vector3();
-    this.candidate = new THREE.Vector3();
 
-    // Deliberately NOT using triggerdown/triggerup events -- something in
-    // A-Frame's button-event dispatch for trigger specifically (not grip,
-    // not thumbstick) has been an unresolved source of "reading
-    // 'quaternion'" crashes on this app's Quest 3 WebXR session, even
-    // after removing laser-controls' auto-attached cursor component (which
-    // was the other trigger-bound consumer). Reading the raw WebXR Gamepad
-    // button state directly bypasses that event system entirely.
+    this.onTriggerDown = () => { this.flying = true; };
+    this.onTriggerUp = () => { this.flying = false; };
     this.onAxisMove = (evt) => {
       const axes = evt.detail.axis;
       // Thumbstick Y is axis[3] on Quest Touch controllers (axis[0..1] are an
@@ -61,58 +46,19 @@ AFRAME.registerComponent('fly-controls', {
       this.axisY = axes.length >= 4 ? axes[3] : (axes.length >= 2 ? axes[1] : 0);
     };
 
+    this.el.addEventListener('triggerdown', this.onTriggerDown);
+    this.el.addEventListener('triggerup', this.onTriggerUp);
     this.el.addEventListener('axismove', this.onAxisMove);
-  },
-
-  isFlyButtonPressed() {
-    const trackedControls = this.el.components['tracked-controls'];
-    const gamepad = trackedControls && trackedControls.controller && trackedControls.controller.gamepad;
-    // Button index 4 is the A/X button on Quest Touch controllers (0=trigger,
-    // 1=grip, 2=unused touchpad slot, 3=thumbstick click, 4=A/X, 5=B/Y).
-    return !!(gamepad && gamepad.buttons[4] && gamepad.buttons[4].pressed);
-  },
-
-  // Applies (dx, dy, dz) to the rig only if the destination isn't below the
-  // terrain surface at that (x, z) — i.e. lets you fly freely above/around
-  // the structure, but stops you at its surface instead of clipping inside.
-  tryMove(rig, dx, dy, dz) {
-    this.candidate.set(rig.position.x + dx, rig.position.y + dy, rig.position.z + dz);
-    const terrainComp = this.data.terrain && this.data.terrain.components['sem-terrain'];
-    const surfaceHeight = terrainComp ? terrainComp.getHeightAt(this.candidate.x, this.candidate.z) : 0;
-    if (this.candidate.y < surfaceHeight + this.data.clearance) return;
-    rig.position.copy(this.candidate);
   },
 
   tick(time, deltaTime) {
     if (!deltaTime) return;
-    // A component's tick() runs inside the render loop with no surrounding
-    // try/catch from A-Frame -- one uncaught error here previously broke
-    // all controller input silently. Never let that happen again.
+    // Cheap insurance, not a sign anything here is expected to throw.
     try {
-      this.diagnoseButtons();
       this.tickMove(deltaTime);
     } catch (err) {
       console.error('fly-controls tick error:', err);
       if (window.reportDebug) window.reportDebug('fly-controls ERROR: ' + err.message);
-    }
-  },
-
-  // TEMPORARY: reports which raw gamepad.buttons[] index changes state, so
-  // we can see the true index for a given physical button instead of
-  // guessing from A-Frame's internal (possibly different) name mapping.
-  diagnoseButtons() {
-    const trackedControls = this.el.components['tracked-controls'];
-    const gamepad = trackedControls && trackedControls.controller && trackedControls.controller.gamepad;
-    if (!gamepad) return;
-    if (!this.prevButtonStates) this.prevButtonStates = [];
-    for (let i = 0; i < gamepad.buttons.length; i++) {
-      const pressed = gamepad.buttons[i].pressed;
-      if (pressed !== this.prevButtonStates[i]) {
-        if (window.reportDebug) {
-          window.reportDebug(this.el.id + ' button[' + i + '] ' + (pressed ? 'DOWN' : 'up'));
-        }
-        this.prevButtonStates[i] = pressed;
-      }
     }
   },
 
@@ -124,35 +70,25 @@ AFRAME.registerComponent('fly-controls', {
     const dt = deltaTime / 1000;
     const rig = this.data.cameraRig.object3D;
 
-    if (this.isFlyButtonPressed()) {
-      // Deliberately not using getWorldDirection() -- it calls
-      // updateWorldMatrix(), which walks the parent chain and has been the
-      // repeated source of "cannot read properties of undefined (reading
-      // 'quaternion')" crashes on this app's Quest 3 WebXR session. Both
-      // this controller entity and the camera sit directly under cameraRig,
-      // which is never rotated, so local quaternion == world quaternion
-      // here -- applying it directly avoids that code path entirely.
-      this.direction.set(0, 0, -1).applyQuaternion(this.el.object3D.quaternion);
-      const d = this.direction.multiplyScalar(-this.data.flySpeed * dt);
-      this.tryMove(rig, d.x, d.y, d.z);
+    if (this.flying) {
+      this.el.object3D.getWorldDirection(this.direction);
+      rig.position.addScaledVector(this.direction, -this.data.flySpeed * dt);
     }
 
     if (Math.abs(this.axisY) > 0.05) {
-      // Flattened to horizontal-only: a natural, slightly-downward gaze
-      // while walking would otherwise add a small negative Y component
-      // every frame, which the ground-collision check in tryMove would
-      // then block -- looking like "zoom barely moves" rather than an
-      // outright failure. Climbing/descending is what fly (trigger +
-      // pointing up/down) is for; zoom is just a horizontal dolly.
-      this.direction.set(0, 0, -1).applyQuaternion(this.data.camera.object3D.quaternion);
+      // Flattened to horizontal-only, same as before -- unrelated to
+      // collision, just keeps zoom a pure horizontal dolly regardless of
+      // incidental gaze pitch. Climbing/descending is what fly is for.
+      this.data.camera.object3D.getWorldDirection(this.direction);
       this.direction.y = 0;
       if (this.direction.lengthSq() > 1e-6) this.direction.normalize();
-      const d = this.direction.multiplyScalar(-this.axisY * this.data.zoomSpeed * dt);
-      this.tryMove(rig, d.x, d.y, d.z);
+      rig.position.addScaledVector(this.direction, -this.axisY * this.data.zoomSpeed * dt);
     }
   },
 
   remove() {
+    this.el.removeEventListener('triggerdown', this.onTriggerDown);
+    this.el.removeEventListener('triggerup', this.onTriggerUp);
     this.el.removeEventListener('axismove', this.onAxisMove);
   },
 });
