@@ -4,14 +4,17 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 16;
+window.FLY_CONTROLS_VERSION = 17;
 
 // Point-and-fly locomotion:
 // - Hold trigger: glide continuously toward wherever the controller points
 //   (so pointing up and holding trigger climbs above the structure).
-// - Thumbstick up/down: dolly forward/back along where you're looking
-//   ("zoom" — get closer to inspect detail, or pull back for the big
-//   picture) — independent of which way the controller is pointed.
+// - Thumbstick up/down: scales the terrain model itself larger/smaller
+//   around its own anchor -- a real camera-lens zoom (narrowing FOV) has
+//   NO effect inside an actual WebXR immersive session, since the headset
+//   controls FOV directly and overrides whatever a three.js camera object
+//   is set to. Growing/shrinking the model is the practical equivalent:
+//   see more detail, or pull back for the big picture, without moving.
 //
 // No wall collision here (deliberately) -- this is back to the exact logic
 // confirmed working before the terrain-collision feature was added. That
@@ -27,8 +30,11 @@ AFRAME.registerComponent('fly-controls', {
   schema: {
     cameraRig: { type: 'selector' },
     camera: { type: 'selector' },
+    terrain: { type: 'selector' },
     flySpeed: { type: 'number', default: 3 },
-    zoomSpeed: { type: 'number', default: 4 },
+    zoomSpeed: { type: 'number', default: 0.6 },
+    minScale: { type: 'number', default: 0.2 },
+    maxScale: { type: 'number', default: 4 },
   },
 
   init() {
@@ -75,14 +81,14 @@ AFRAME.registerComponent('fly-controls', {
       rig.position.addScaledVector(this.direction, -this.data.flySpeed * dt);
     }
 
-    if (Math.abs(this.axisY) > 0.05) {
-      // Flattened to horizontal-only, same as before -- unrelated to
-      // collision, just keeps zoom a pure horizontal dolly regardless of
-      // incidental gaze pitch. Climbing/descending is what fly is for.
-      this.data.camera.object3D.getWorldDirection(this.direction);
-      this.direction.y = 0;
-      if (this.direction.lengthSq() > 1e-6) this.direction.normalize();
-      rig.position.addScaledVector(this.direction, -this.axisY * this.data.zoomSpeed * dt);
+    if (Math.abs(this.axisY) > 0.05 && this.data.terrain) {
+      const terrainObj = this.data.terrain.object3D;
+      // Stick up (negative axisY, standard convention) grows the model
+      // (zoom in / more detail); stick down shrinks it (zoom out / big
+      // picture). Multiplicative so it feels the same at any current scale.
+      const factor = 1 - this.axisY * this.data.zoomSpeed * dt;
+      const next = THREE.MathUtils.clamp(terrainObj.scale.x * factor, this.data.minScale, this.data.maxScale);
+      terrainObj.scale.set(next, next, next);
     }
   },
 

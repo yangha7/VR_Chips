@@ -11,9 +11,9 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=16"></script>
-  <script src="fly-controls.js?v=16"></script>
-  <script src="menu-controller.js?v=16"></script>
+  <script src="sem-terrain.js?v=17"></script>
+  <script src="fly-controls.js?v=17"></script>
+  <script src="menu-controller.js?v=17"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -98,7 +98,7 @@
     <a-entity position="0 1.9 -3"
               geometry="primitive: plane; width: 3.4; height: 0.9"
               material="color: #ffffff; opacity: 0.85; shader: flat"
-              text="value: Grip: open menu (help / image / choose sample)\nTrigger: fly -- Thumbstick: zoom;
+              text="value: Grip: open menu (help / image / choose sample)\nTrigger: fly -- Thumbstick: zoom the model;
                     width: 3.2; align: center; color: #111111; wrapCount: 40">
     </a-entity>
 
@@ -131,12 +131,12 @@
       <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
       <a-entity id="leftHand" laser-controls="hand: left" oculus-touch-controls="hand: left; model: false"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera"
+                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain"
                 menu-controller="menu: #menu; camera: #camera; cameraRig: #cameraRig; terrain: #terrain">
       </a-entity>
       <a-entity id="rightHand" laser-controls="hand: right" oculus-touch-controls="hand: right; model: false"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
-                fly-controls="cameraRig: #cameraRig; camera: #camera"
+                fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain"
                 menu-controller="menu: #menu; camera: #camera; cameraRig: #cameraRig; terrain: #terrain">
       </a-entity>
     </a-entity>

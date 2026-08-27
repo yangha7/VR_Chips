@@ -1,6 +1,6 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 10;
+window.MENU_CONTROLLER_VERSION = 11;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
@@ -11,7 +11,7 @@ const SEM_DATASETS = [
   { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg' },
 ];
 
-const HELP_TEXT = "SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom in / out (moves along where you look)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nTrigger: confirm on the sample-picker page";
+const HELP_TEXT = "SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom the model larger/smaller (doesn't move you)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nTrigger: confirm on the sample-picker page";
 
 AFRAME.registerComponent('menu-controller', {
   schema: {
