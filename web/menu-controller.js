@@ -1,6 +1,6 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 7;
+window.MENU_CONTROLLER_VERSION = 8;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
@@ -26,18 +26,30 @@ AFRAME.registerComponent('menu-controller', {
     this.selectIndex = 0;
     this.prevAxisX = 0;
     this.prevAxisY = 0;
+    this.prevTriggerPressed = false;
 
     this.onGripDown = () => this.safely('gripdown', () => this.toggleMenu());
-    this.onTriggerDown = () => this.safely('triggerdown', () => {
-      if (this.isOpen() && this.page === 2) this.confirmSelection();
-    });
     this.onAxisMove = (evt) => this.safely('axismove', () => this.handleAxisMove(evt.detail.axis));
 
     this.el.addEventListener('gripdown', this.onGripDown);
-    this.el.addEventListener('triggerdown', this.onTriggerDown);
     this.el.addEventListener('axismove', this.onAxisMove);
 
     this.renderHelpPage();
+  },
+
+  // Deliberately NOT using the triggerdown event -- see fly-controls.js for
+  // why. Polling the raw WebXR Gamepad button state directly for the
+  // rising edge sidesteps it entirely.
+  tick() {
+    this.safely('tick', () => {
+      const trackedControls = this.el.components['tracked-controls'];
+      const gamepad = trackedControls && trackedControls.controller && trackedControls.controller.gamepad;
+      const pressed = !!(gamepad && gamepad.buttons[0] && gamepad.buttons[0].pressed);
+      if (pressed && !this.prevTriggerPressed && this.isOpen() && this.page === 2) {
+        this.confirmSelection();
+      }
+      this.prevTriggerPressed = pressed;
+    });
   },
 
   // Every controller-event handler runs outside A-Frame's own try/catch, so
@@ -148,7 +160,6 @@ AFRAME.registerComponent('menu-controller', {
 
   remove() {
     this.el.removeEventListener('gripdown', this.onGripDown);
-    this.el.removeEventListener('triggerdown', this.onTriggerDown);
     this.el.removeEventListener('axismove', this.onAxisMove);
   },
 });

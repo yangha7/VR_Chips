@@ -4,13 +4,16 @@
   <meta charset="utf-8">
   <title>VR Chips — Comb Structure v1</title>
   <script src="libs/aframe.min.js"></script>
-  <script src="libs/aframe-extras.min.js"></script>
+  <!-- aframe-extras.min.js removed: nothing in this app uses any of its
+       components anymore (movement-controls was dropped a while back),
+       so it's just dead weight and one less unknown while chasing the
+       trigger crash. -->
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=12"></script>
-  <script src="fly-controls.js?v=12"></script>
-  <script src="menu-controller.js?v=12"></script>
+  <script src="sem-terrain.js?v=13"></script>
+  <script src="fly-controls.js?v=13"></script>
+  <script src="menu-controller.js?v=13"></script>
   <script>
     const log = [];
     function report(msg) {

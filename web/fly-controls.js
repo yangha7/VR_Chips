@@ -4,7 +4,7 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 12;
+window.FLY_CONTROLS_VERSION = 13;
 
 // Point-and-fly locomotion:
 // - Hold trigger: glide continuously toward wherever the controller points
@@ -35,13 +35,17 @@ AFRAME.registerComponent('fly-controls', {
   },
 
   init() {
-    this.flying = false;
     this.axisY = 0;
     this.direction = new THREE.Vector3();
     this.candidate = new THREE.Vector3();
 
-    this.onTriggerDown = () => { this.flying = true; };
-    this.onTriggerUp = () => { this.flying = false; };
+    // Deliberately NOT using triggerdown/triggerup events -- something in
+    // A-Frame's button-event dispatch for trigger specifically (not grip,
+    // not thumbstick) has been an unresolved source of "reading
+    // 'quaternion'" crashes on this app's Quest 3 WebXR session, even
+    // after removing laser-controls' auto-attached cursor component (which
+    // was the other trigger-bound consumer). Reading the raw WebXR Gamepad
+    // button state directly bypasses that event system entirely.
     this.onAxisMove = (evt) => {
       const axes = evt.detail.axis;
       // Thumbstick Y is axis[3] on Quest Touch controllers (axis[0..1] are an
@@ -50,9 +54,13 @@ AFRAME.registerComponent('fly-controls', {
       this.axisY = axes.length >= 4 ? axes[3] : (axes.length >= 2 ? axes[1] : 0);
     };
 
-    this.el.addEventListener('triggerdown', this.onTriggerDown);
-    this.el.addEventListener('triggerup', this.onTriggerUp);
     this.el.addEventListener('axismove', this.onAxisMove);
+  },
+
+  isTriggerPressed() {
+    const trackedControls = this.el.components['tracked-controls'];
+    const gamepad = trackedControls && trackedControls.controller && trackedControls.controller.gamepad;
+    return !!(gamepad && gamepad.buttons[0] && gamepad.buttons[0].pressed);
   },
 
   // Applies (dx, dy, dz) to the rig only if the destination isn't below the
@@ -76,7 +84,6 @@ AFRAME.registerComponent('fly-controls', {
     } catch (err) {
       console.error('fly-controls tick error:', err);
       if (window.reportDebug) window.reportDebug('fly-controls ERROR: ' + err.message);
-      this.flying = false;
     }
   },
 
@@ -88,7 +95,7 @@ AFRAME.registerComponent('fly-controls', {
     const dt = deltaTime / 1000;
     const rig = this.data.cameraRig.object3D;
 
-    if (this.flying) {
+    if (this.isTriggerPressed()) {
       // Deliberately not using getWorldDirection() -- it calls
       // updateWorldMatrix(), which walks the parent chain and has been the
       // repeated source of "cannot read properties of undefined (reading
@@ -117,8 +124,6 @@ AFRAME.registerComponent('fly-controls', {
   },
 
   remove() {
-    this.el.removeEventListener('triggerdown', this.onTriggerDown);
-    this.el.removeEventListener('triggerup', this.onTriggerUp);
     this.el.removeEventListener('axismove', this.onAxisMove);
   },
 });
