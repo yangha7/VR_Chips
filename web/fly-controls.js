@@ -4,11 +4,18 @@
 // the matching ?v= query param in index.html. The debug overlay reports
 // this so a stale cached script is immediately obvious instead of looking
 // like a mystery regression.
-window.FLY_CONTROLS_VERSION = 13;
+window.FLY_CONTROLS_VERSION = 14;
 
 // Point-and-fly locomotion:
-// - Hold trigger: glide continuously toward wherever the controller points
-//   (so pointing up and holding trigger climbs above the structure).
+// - Hold the A/X button: glide continuously toward wherever the controller
+//   points (so pointing up and holding it climbs above the structure).
+//   Deliberately NOT the trigger -- something in A-Frame's own per-frame
+//   processing of the trigger button crashes on this app's Quest 3 WebXR
+//   session regardless of whether our code listens for it at all (confirmed
+//   by bypassing the triggerdown/triggerup events entirely and polling the
+//   raw Gamepad state instead, which did not help). Grip and thumbstick
+//   both work reliably, so the fly action moved to another ordinary button
+//   (index 4 -- A/X) rather than continuing to chase the trigger bug.
 // - Thumbstick up/down: dolly forward/back along where you're looking
 //   ("zoom" — get closer to inspect detail, or pull back for the big
 //   picture) — independent of which way the controller is pointed.
@@ -57,10 +64,12 @@ AFRAME.registerComponent('fly-controls', {
     this.el.addEventListener('axismove', this.onAxisMove);
   },
 
-  isTriggerPressed() {
+  isFlyButtonPressed() {
     const trackedControls = this.el.components['tracked-controls'];
     const gamepad = trackedControls && trackedControls.controller && trackedControls.controller.gamepad;
-    return !!(gamepad && gamepad.buttons[0] && gamepad.buttons[0].pressed);
+    // Button index 4 is the A/X button on Quest Touch controllers (0=trigger,
+    // 1=grip, 2=unused touchpad slot, 3=thumbstick click, 4=A/X, 5=B/Y).
+    return !!(gamepad && gamepad.buttons[4] && gamepad.buttons[4].pressed);
   },
 
   // Applies (dx, dy, dz) to the rig only if the destination isn't below the
@@ -95,7 +104,7 @@ AFRAME.registerComponent('fly-controls', {
     const dt = deltaTime / 1000;
     const rig = this.data.cameraRig.object3D;
 
-    if (this.isTriggerPressed()) {
+    if (this.isFlyButtonPressed()) {
       // Deliberately not using getWorldDirection() -- it calls
       // updateWorldMatrix(), which walks the parent chain and has been the
       // repeated source of "cannot read properties of undefined (reading
