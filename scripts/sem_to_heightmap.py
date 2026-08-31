@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 """Turn a raw SEM/AFM image into a heightmap + texture pair for WebXR terrain.
 
-Usage: python3 sem_to_heightmap.py <input_image> <output_name>
+Usage: python3 sem_to_heightmap.py <input_image> <output_name> [options]
 Writes assets/processed/<output_name>_height.png (16-bit grayscale)
 and assets/processed/<output_name>_texture.jpg (cropped color/gray source).
+
+Options:
+  --no-crop            Skip info-bar detection for already-cropped sources.
+  --target-dim N        Output size on the longer side (default 2048).
+  --plateau-radius N    Grayscale-dilation radius in px (default: proportional
+                         to output width). Use a small value (1-2) or 0 to
+                         preserve fine periodic texture instead of smoothing
+                         it into flat-top plateaus -- appropriate for a real
+                         line/space grating where the fine structure IS the
+                         real periodicity, not shading noise to clean up.
 """
-import sys
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +31,7 @@ OUT_DIR = ROOT / "assets" / "processed"
 # a fixed 4x upsample multiplier only made sense for the former and
 # produced multi-thousand-pixel monsters for the latter, well past what a
 # mobile GPU texture should be asked to hold.
-TARGET_MAX_DIM = 2048
+DEFAULT_TARGET_MAX_DIM = 2048
 
 
 def find_info_bar_crop(gray: np.ndarray) -> int:
@@ -40,26 +50,29 @@ def find_info_bar_crop(gray: np.ndarray) -> int:
 
 
 def main():
-    if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] != "--no-crop"):
-        print(__doc__)
-        print("Add --no-crop to skip info-bar detection for already-cropped sources.")
-        sys.exit(1)
-    src_path = Path(sys.argv[1])
-    name = sys.argv[2]
-    no_crop = len(sys.argv) == 4
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("input_image")
+    parser.add_argument("output_name")
+    parser.add_argument("--no-crop", action="store_true")
+    parser.add_argument("--target-dim", type=int, default=DEFAULT_TARGET_MAX_DIM)
+    parser.add_argument("--plateau-radius", type=int, default=None)
+    args = parser.parse_args()
+
+    src_path = Path(args.input_image)
+    name = args.output_name
 
     img = Image.open(src_path).convert("L")
     arr = np.array(img, dtype=np.float32)
 
-    crop_h = img.height if no_crop else find_info_bar_crop(arr)
+    crop_h = img.height if args.no_crop else find_info_bar_crop(arr)
     arr = arr[:crop_h, :]
     print(f"Cropped info bar: kept rows 0:{crop_h} of {img.height}")
 
-    # Scale toward TARGET_MAX_DIM -- upsampling tiny thumbnails, downsampling
+    # Scale toward target_dim -- upsampling tiny thumbnails, downsampling
     # real high-res captures. Either way this gives the terrain mesh a
     # consistent, sane vertex/texture budget regardless of source size.
     cropped_img = Image.fromarray(arr.astype(np.uint8))
-    scale = TARGET_MAX_DIM / max(cropped_img.width, cropped_img.height)
+    scale = args.target_dim / max(cropped_img.width, cropped_img.height)
     out_size = (round(cropped_img.width * scale), round(cropped_img.height * scale))
     upsampled = cropped_img.resize(out_size, Image.BICUBIC)
     height_arr = np.array(upsampled, dtype=np.float32)
@@ -70,9 +83,12 @@ def main():
     # spikes rather than the flat-top ridges the real structure has. Grayscale
     # dilation spreads each bright edge into a plateau spanning roughly one
     # structure width, which reads as a walkable flat-top wall instead.
-    # Sized relative to the output width so it scales with any source image.
-    plateau_radius = max(2, round(upsampled.width * 0.007))
-    height_arr = grey_dilation(height_arr, size=(plateau_radius * 2 + 1,) * 2)
+    # Sized relative to the output width so it scales with any source image
+    # -- but override with --plateau-radius when the source has real fine
+    # periodic structure you want preserved rather than smoothed away.
+    plateau_radius = args.plateau_radius if args.plateau_radius is not None else max(2, round(upsampled.width * 0.007))
+    if plateau_radius > 0:
+        height_arr = grey_dilation(height_arr, size=(plateau_radius * 2 + 1,) * 2)
 
     # Light final smoothing to soften the plateau's corners — this is just
     # anti-aliasing, not the main shaping step, so keep it small.
@@ -97,7 +113,7 @@ def main():
     )
     texture_sharpened.save(OUT_DIR / f"{name}_texture.jpg", quality=92)
 
-    print(f"Wrote {OUT_DIR / f'{name}_height.png'} ({upsampled.size})")
+    print(f"Wrote {OUT_DIR / f'{name}_height.png'} ({upsampled.size}), plateau_radius={plateau_radius}")
     print(f"Wrote {OUT_DIR / f'{name}_texture.jpg'} ({texture_sharpened.size})")
 
 

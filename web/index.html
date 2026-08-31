@@ -11,9 +11,9 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=19"></script>
-  <script src="fly-controls.js?v=19"></script>
-  <script src="menu-controller.js?v=19"></script>
+  <script src="sem-terrain.js?v=20"></script>
+  <script src="fly-controls.js?v=20"></script>
+  <script src="menu-controller.js?v=20"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -88,9 +88,9 @@
          pixels sit near floor level; bright ridge edges rise up as walls. -->
     <a-entity id="terrain" class="ground"
               position="0 0.01 -20"
-              sem-terrain="heightmap: ../assets/processed/als_grating_height.png?v=3;
-                           texture: ../assets/processed/als_grating_texture.jpg?v=3;
-                           width: 34; maxHeight: 5; resolution: 260">
+              sem-terrain="heightmap: ../assets/processed/als_grating_height.png?v=4;
+                           texture: ../assets/processed/als_grating_texture.jpg?v=4;
+                           width: 34; maxHeight: 5; resolution: 1000">
     </a-entity>
 
     <!-- Compact always-visible hint at spawn, so first-time users don't
@@ -115,7 +115,7 @@
       <a-entity id="menuPageImage" position="0 0 0.01" visible="false">
         <a-entity id="menuImagePlane"
                   geometry="primitive: plane; width: 3.6; height: 2.2"
-                  material="src: ../assets/processed/als_grating_texture.jpg?v=3; shader: flat"></a-entity>
+                  material="src: ../assets/processed/als_grating_texture.jpg?v=4; shader: flat"></a-entity>
       </a-entity>
 
       <a-entity id="menuPageDatasets" position="0 0.1 0.01" visible="false"

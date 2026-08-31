@@ -9,7 +9,7 @@ AFRAME.registerComponent('sem-terrain', {
     texture: { type: 'string' },
     width: { type: 'number', default: 34 },
     maxHeight: { type: 'number', default: 5 },
-    resolution: { type: 'int', default: 260 },
+    resolution: { type: 'int', default: 1000 },
   },
 
   init() {
