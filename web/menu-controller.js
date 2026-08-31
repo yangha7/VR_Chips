@@ -6,12 +6,17 @@ window.MENU_CONTROLLER_VERSION = 15;
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
 // Exposed on window so desktop-preview.js's plain HTML panel can reuse the
 // same list and loader without duplicating them.
+// resolution is per-dataset (see sem-terrain.js's build()) -- the ALS
+// grating needs a dense grid for its fine periodic structure to read as
+// individual lines, but the other, coarser datasets don't, and 260 is what
+// they used (and ran smoothly at) before resolution was raised to 1000
+// specifically for the grating.
 const SEM_DATASETS = [
-  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png?v=5', texture: '../assets/processed/als_grating_texture.jpg?v=5' },
-  { label: 'MEMS comb-drive actuator', heightmap: '../assets/processed/comb_height.png', texture: '../assets/processed/comb_texture.jpg' },
-  { label: 'Deprocessed die -- routing', heightmap: '../assets/processed/fig3_height.png', texture: '../assets/processed/fig3_texture.jpg' },
-  { label: 'Deprocessed die -- via lattice', heightmap: '../assets/processed/fig4_height.png', texture: '../assets/processed/fig4_texture.jpg' },
-  { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg' },
+  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png?v=5', texture: '../assets/processed/als_grating_texture.jpg?v=5', resolution: 1000 },
+  { label: 'MEMS comb-drive actuator', heightmap: '../assets/processed/comb_height.png', texture: '../assets/processed/comb_texture.jpg', resolution: 260 },
+  { label: 'Deprocessed die -- routing', heightmap: '../assets/processed/fig3_height.png', texture: '../assets/processed/fig3_texture.jpg', resolution: 260 },
+  { label: 'Deprocessed die -- via lattice', heightmap: '../assets/processed/fig4_height.png', texture: '../assets/processed/fig4_texture.jpg', resolution: 260 },
+  { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg', resolution: 260 },
 ];
 window.SEM_DATASETS = SEM_DATASETS;
 

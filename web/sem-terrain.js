@@ -27,7 +27,10 @@ AFRAME.registerComponent('sem-terrain', {
     const override = this.getStoredOverride();
     const heightmapSrc = override ? override.heightmap : this.data.heightmap;
     const textureSrc = override ? override.texture : this.data.texture;
-    this.loadDataset(heightmapSrc, textureSrc);
+    // Resolution is per-dataset, not the entity's fixed schema value -- see
+    // loadDataset()'s comment for why.
+    const resolution = (override && override.resolution) || this.data.resolution;
+    this.loadDataset(heightmapSrc, textureSrc, resolution);
   },
 
   // Keep in sync with DATASET_STORAGE_KEY in menu-controller.js.
@@ -55,15 +58,17 @@ AFRAME.registerComponent('sem-terrain', {
 
   // Loads a SEM image (used both for the initial page-load build and,
   // historically, for in-place swaps -- now only the former; see init()).
-  loadDataset(heightmapSrc, textureSrc) {
+  // resolution defaults to the entity's schema value when not given
+  // (e.g. this.data.heightmap/texture's own first load).
+  loadDataset(heightmapSrc, textureSrc, resolution) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => this.build(img, textureSrc);
+    img.onload = () => this.build(img, textureSrc, resolution || this.data.resolution);
     img.onerror = (e) => console.error('sem-terrain: failed to load heightmap', heightmapSrc, e);
     img.src = heightmapSrc;
   },
 
-  build(img, textureSrc) {
+  build(img, textureSrc, resolution) {
     // Bumps on every call -- if loadDataset() is called again before this
     // one's chunked fill finishes, the stale run's captured buildId no
     // longer matches this.buildId and it quietly bails on its next tick
@@ -74,7 +79,15 @@ AFRAME.registerComponent('sem-terrain', {
     const maxHeight = this.data.maxHeight;
     const depth = width * (img.height / img.width);
 
-    const resX = this.data.resolution;
+    // Vertex count -- and therefore how long the chunked fill below takes --
+    // scales with this squared, so it's set per-dataset (SEM_DATASETS in
+    // menu-controller.js) rather than fixed on the entity: the ALS grating's
+    // fine 40nm-pitch periodicity genuinely needs a dense grid to read as
+    // individual lines rather than a blur, but the other, coarser datasets
+    // don't, and building them at the same high resolution was pure wasted
+    // time -- enough on Quest's mobile CPU to reintroduce the same lag this
+    // whole chunking effort was meant to fix.
+    const resX = resolution;
     const resY = Math.max(2, Math.round(resX * (img.height / img.width)));
 
     const canvas = document.createElement('canvas');
