@@ -5,7 +5,7 @@ window.MENU_CONTROLLER_VERSION = 13;
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
 const SEM_DATASETS = [
-  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png?v=2', texture: '../assets/processed/als_grating_texture.jpg?v=2' },
+  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png?v=3', texture: '../assets/processed/als_grating_texture.jpg?v=3' },
   { label: 'MEMS comb-drive actuator', heightmap: '../assets/processed/comb_height.png', texture: '../assets/processed/comb_texture.jpg' },
   { label: 'Deprocessed die -- routing', heightmap: '../assets/processed/fig3_height.png', texture: '../assets/processed/fig3_texture.jpg' },
   { label: 'Deprocessed die -- via lattice', heightmap: '../assets/processed/fig4_height.png', texture: '../assets/processed/fig4_texture.jpg' },
