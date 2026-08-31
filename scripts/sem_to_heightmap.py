@@ -40,16 +40,18 @@ def find_info_bar_crop(gray: np.ndarray) -> int:
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] != "--no-crop"):
         print(__doc__)
+        print("Add --no-crop to skip info-bar detection for already-cropped sources.")
         sys.exit(1)
     src_path = Path(sys.argv[1])
     name = sys.argv[2]
+    no_crop = len(sys.argv) == 4
 
     img = Image.open(src_path).convert("L")
     arr = np.array(img, dtype=np.float32)
 
-    crop_h = find_info_bar_crop(arr)
+    crop_h = img.height if no_crop else find_info_bar_crop(arr)
     arr = arr[:crop_h, :]
     print(f"Cropped info bar: kept rows 0:{crop_h} of {img.height}")
 
