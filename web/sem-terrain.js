@@ -13,7 +13,20 @@ AFRAME.registerComponent('sem-terrain', {
   },
 
   init() {
+    this.pendingChunk = null;
     this.loadDataset(this.data.heightmap, this.data.texture);
+  },
+
+  // Advances the chunked mesh-fill (see build()) once per rendered frame.
+  // Driven by A-Frame's own tick instead of a raw window.requestAnimationFrame
+  // loop, because Three.js's WebXRManager switches the renderer's actual
+  // animation loop over to the XR session's own frame callback while an
+  // immersive session is presenting -- the plain window-level rAF used
+  // previously stops firing at that point, which silently stalled every
+  // in-VR dataset switch partway through (mesh never finished building, so
+  // it never swapped in).
+  tick() {
+    if (this.pendingChunk) this.pendingChunk();
   },
 
   // Swaps in a different SEM image at runtime (used by the dataset-picker
@@ -29,8 +42,8 @@ AFRAME.registerComponent('sem-terrain', {
 
   build(img, textureSrc) {
     // Bumps on every call -- if loadDataset() is called again before this
-    // one's chunked loop finishes, the stale run's next requestAnimationFrame
-    // tick sees its captured buildId no longer matches and quietly bails
+    // one's chunked fill finishes, the stale run's captured buildId no
+    // longer matches this.buildId and it quietly bails on its next tick
     // instead of racing the newer build to finish the same mesh.
     const buildId = (this.buildId = (this.buildId || 0) + 1);
 
@@ -68,8 +81,8 @@ AFRAME.registerComponent('sem-terrain', {
     // This was invisible on the very first load (happens before VR entry)
     // and only showed up on a dataset switch triggered from inside VR --
     // matching exactly what was reported. Spreading the fill across many
-    // small requestAnimationFrame chunks keeps every single frame's work
-    // bounded, so the session never misses more than a sliver of a frame.
+    // small per-tick chunks keeps every single frame's work bounded, so the
+    // session never misses more than a sliver of a frame.
     const CHUNK_SIZE = 20000;
     let idx = 0;
 
@@ -121,20 +134,19 @@ AFRAME.registerComponent('sem-terrain', {
     // PlaneGeometry lays out vertices row-major, first row at +depth/2.
     // Our canvas row 0 is the top of the source image — sample directly,
     // matching row-for-row so the texture UVs line up with the height data.
-    const processChunk = () => {
+    // Called from tick() (see above), not scheduled directly here.
+    this.pendingChunk = () => {
       if (buildId !== this.buildId) return; // superseded by a newer loadDataset() call
       const end = Math.min(idx + CHUNK_SIZE, totalVerts);
       for (; idx < end; idx++) {
         const brightness = pixels[idx * 4] / 255;
         positionArray[idx * 3 + 2] = brightness * maxHeight;
       }
-      if (idx < totalVerts) {
-        requestAnimationFrame(processChunk);
-      } else {
+      if (idx >= totalVerts) {
+        this.pendingChunk = null;
         finishBuild();
       }
     };
-    processChunk();
   },
 
   // Returns the terrain height at a world-space (x, z), or 0 if outside
