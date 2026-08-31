@@ -28,18 +28,15 @@ AFRAME.registerComponent('sem-terrain', {
   },
 
   build(img, textureSrc) {
-    const existing = this.el.getObject3D('mesh');
-    if (existing) {
-      existing.geometry.dispose();
-      if (existing.material.map) existing.material.map.dispose();
-      existing.material.dispose();
-      this.el.removeObject3D('mesh');
-    }
+    // Bumps on every call -- if loadDataset() is called again before this
+    // one's chunked loop finishes, the stale run's next requestAnimationFrame
+    // tick sees its captured buildId no longer matches and quietly bails
+    // instead of racing the newer build to finish the same mesh.
+    const buildId = (this.buildId = (this.buildId || 0) + 1);
 
     const width = this.data.width;
     const maxHeight = this.data.maxHeight;
     const depth = width * (img.height / img.width);
-    this.currentDepth = depth;
 
     const resX = this.data.resolution;
     const resY = Math.max(2, Math.round(resX * (img.height / img.width)));
@@ -59,49 +56,85 @@ AFRAME.registerComponent('sem-terrain', {
     const pixels = ctx.getImageData(0, 0, resX, resY).data;
 
     const geometry = new THREE.PlaneGeometry(width, depth, resX - 1, resY - 1);
-    const position = geometry.attributes.position;
+    const positionArray = geometry.attributes.position.array;
+    const totalVerts = resX * resY;
+
+    // Filling every vertex height in one synchronous pass blocks the main
+    // thread for as long as it takes -- fine before you're in VR, but once
+    // an immersive session is running and reprojecting frames from live head
+    // tracking, a single long JS stall (hundreds of ms at these resolutions
+    // on Quest's mobile CPU) makes the compositor reproject stale frames
+    // while you turn your head, which reads as tearing / a stuck old view.
+    // This was invisible on the very first load (happens before VR entry)
+    // and only showed up on a dataset switch triggered from inside VR --
+    // matching exactly what was reported. Spreading the fill across many
+    // small requestAnimationFrame chunks keeps every single frame's work
+    // bounded, so the session never misses more than a sliver of a frame.
+    const CHUNK_SIZE = 20000;
+    let idx = 0;
+
+    const finishBuild = () => {
+      geometry.rotateX(-Math.PI / 2);
+      geometry.computeVertexNormals();
+
+      const loader = new THREE.TextureLoader();
+      const colorMap = loader.load(textureSrc);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      colorMap.anisotropy = 8;
+
+      // Steep walls in the relief can face almost any direction once you're
+      // walking among them and looking up/around — single-sided faces would
+      // disappear from certain angles, so render both sides.
+      const material = new THREE.MeshStandardMaterial({
+        map: colorMap,
+        roughness: 0.95,
+        metalness: 0.05,
+        side: THREE.DoubleSide,
+      });
+
+      // No shadow casting on this mesh for v1 — keeping the standalone Quest 3
+      // GPU headroom for comfortable frame rate takes priority over lighting fidelity.
+      const mesh = new THREE.Mesh(geometry, material);
+
+      // Only now, with the new mesh fully built, swap it in -- the old one
+      // (if any) stays visible for the whole chunked fill above instead of
+      // leaving the terrain blanked out for the duration.
+      const existing = this.el.getObject3D('mesh');
+      if (existing) {
+        existing.geometry.dispose();
+        if (existing.material.map) existing.material.map.dispose();
+        existing.material.dispose();
+        this.el.removeObject3D('mesh');
+      }
+      this.el.setObject3D('mesh', mesh);
+
+      // Keep the sampled grid around for cheap height lookups (collision),
+      // so callers don't need to raycast against the full triangle mesh.
+      this.heightPixels = pixels;
+      this.heightResX = resX;
+      this.heightResY = resY;
+      this.currentDepth = depth;
+
+      this.el.emit('sem-terrain-loaded');
+    };
 
     // PlaneGeometry lays out vertices row-major, first row at +depth/2.
     // Our canvas row 0 is the top of the source image — sample directly,
     // matching row-for-row so the texture UVs line up with the height data.
-    for (let row = 0; row < resY; row++) {
-      for (let col = 0; col < resX; col++) {
-        const vertexIndex = row * resX + col;
-        const pixelIndex = (row * resX + col) * 4;
-        const brightness = pixels[pixelIndex] / 255;
-        position.setZ(vertexIndex, brightness * maxHeight);
+    const processChunk = () => {
+      if (buildId !== this.buildId) return; // superseded by a newer loadDataset() call
+      const end = Math.min(idx + CHUNK_SIZE, totalVerts);
+      for (; idx < end; idx++) {
+        const brightness = pixels[idx * 4] / 255;
+        positionArray[idx * 3 + 2] = brightness * maxHeight;
       }
-    }
-    geometry.rotateX(-Math.PI / 2);
-    geometry.computeVertexNormals();
-
-    const loader = new THREE.TextureLoader();
-    const colorMap = loader.load(textureSrc);
-    colorMap.colorSpace = THREE.SRGBColorSpace;
-    colorMap.anisotropy = 8;
-
-    // Steep walls in the relief can face almost any direction once you're
-    // walking among them and looking up/around — single-sided faces would
-    // disappear from certain angles, so render both sides.
-    const material = new THREE.MeshStandardMaterial({
-      map: colorMap,
-      roughness: 0.95,
-      metalness: 0.05,
-      side: THREE.DoubleSide,
-    });
-
-    // No shadow casting on this mesh for v1 — keeping the standalone Quest 3
-    // GPU headroom for comfortable frame rate takes priority over lighting fidelity.
-    const mesh = new THREE.Mesh(geometry, material);
-    this.el.setObject3D('mesh', mesh);
-
-    // Keep the sampled grid around for cheap height lookups (collision),
-    // so callers don't need to raycast against the full triangle mesh.
-    this.heightPixels = pixels;
-    this.heightResX = resX;
-    this.heightResY = resY;
-
-    this.el.emit('sem-terrain-loaded');
+      if (idx < totalVerts) {
+        requestAnimationFrame(processChunk);
+      } else {
+        finishBuild();
+      }
+    };
+    processChunk();
   },
 
   // Returns the terrain height at a world-space (x, z), or 0 if outside
