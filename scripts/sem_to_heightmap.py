@@ -15,6 +15,14 @@ from scipy.ndimage import gaussian_filter, grey_dilation
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "assets" / "processed"
 
+# Cap output at this on its longer side, regardless of source resolution.
+# Web thumbnails (a few hundred px) get upsampled toward this; real
+# high-res SEM captures (thousands of px) get downsampled toward it --
+# a fixed 4x upsample multiplier only made sense for the former and
+# produced multi-thousand-pixel monsters for the latter, well past what a
+# mobile GPU texture should be asked to hold.
+TARGET_MAX_DIM = 2048
+
 
 def find_info_bar_crop(gray: np.ndarray) -> int:
     """SEM software burns a black info bar (scale, kV, mag) into the bottom
@@ -45,13 +53,13 @@ def main():
     arr = arr[:crop_h, :]
     print(f"Cropped info bar: kept rows 0:{crop_h} of {img.height}")
 
-    # Upsample — source SEM thumbnails are often tiny; bicubic gives the
-    # terrain mesh enough vertices to look like a surface, not a staircase.
-    scale = 4
+    # Scale toward TARGET_MAX_DIM -- upsampling tiny thumbnails, downsampling
+    # real high-res captures. Either way this gives the terrain mesh a
+    # consistent, sane vertex/texture budget regardless of source size.
     cropped_img = Image.fromarray(arr.astype(np.uint8))
-    upsampled = cropped_img.resize(
-        (cropped_img.width * scale, cropped_img.height * scale), Image.BICUBIC
-    )
+    scale = TARGET_MAX_DIM / max(cropped_img.width, cropped_img.height)
+    out_size = (round(cropped_img.width * scale), round(cropped_img.height * scale))
+    upsampled = cropped_img.resize(out_size, Image.BICUBIC)
     height_arr = np.array(upsampled, dtype=np.float32)
 
     # Oblique SEM shots light the edge of a raised feature brightly and leave
@@ -60,7 +68,8 @@ def main():
     # spikes rather than the flat-top ridges the real structure has. Grayscale
     # dilation spreads each bright edge into a plateau spanning roughly one
     # structure width, which reads as a walkable flat-top wall instead.
-    plateau_radius = 6  # ~ half a comb-finger width at this upsample scale
+    # Sized relative to the output width so it scales with any source image.
+    plateau_radius = max(2, round(upsampled.width * 0.007))
     height_arr = grey_dilation(height_arr, size=(plateau_radius * 2 + 1,) * 2)
 
     # Light final smoothing to soften the plateau's corners — this is just
@@ -80,9 +89,7 @@ def main():
     # plain bicubic stretch would once it's wrapped over many meters of terrain.
     texture_src = Image.open(src_path).convert("RGB")
     texture_crop = texture_src.crop((0, 0, texture_src.width, crop_h))
-    texture_upsampled = texture_crop.resize(
-        (texture_crop.width * scale, texture_crop.height * scale), Image.BICUBIC
-    )
+    texture_upsampled = texture_crop.resize(out_size, Image.BICUBIC)
     texture_sharpened = texture_upsampled.filter(
         ImageFilter.UnsharpMask(radius=2, percent=120, threshold=2)
     )

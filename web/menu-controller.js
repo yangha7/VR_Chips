@@ -1,6 +1,6 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 11;
+window.MENU_CONTROLLER_VERSION = 12;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
@@ -9,6 +9,7 @@ const SEM_DATASETS = [
   { label: 'Deprocessed die -- routing', heightmap: '../assets/processed/fig3_height.png', texture: '../assets/processed/fig3_texture.jpg' },
   { label: 'Deprocessed die -- via lattice', heightmap: '../assets/processed/fig4_height.png', texture: '../assets/processed/fig4_texture.jpg' },
   { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg' },
+  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png', texture: '../assets/processed/als_grating_texture.jpg' },
 ];
 
 const HELP_TEXT = "SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom the model larger/smaller (doesn't move you)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nTrigger: confirm on the sample-picker page";
