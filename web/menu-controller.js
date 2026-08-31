@@ -1,16 +1,27 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 13;
+window.MENU_CONTROLLER_VERSION = 14;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
+// Exposed on window so desktop-preview.js's plain HTML panel can reuse the
+// same list and loader without duplicating them.
 const SEM_DATASETS = [
-  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png?v=4', texture: '../assets/processed/als_grating_texture.jpg?v=4' },
+  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png?v=5', texture: '../assets/processed/als_grating_texture.jpg?v=5' },
   { label: 'MEMS comb-drive actuator', heightmap: '../assets/processed/comb_height.png', texture: '../assets/processed/comb_texture.jpg' },
   { label: 'Deprocessed die -- routing', heightmap: '../assets/processed/fig3_height.png', texture: '../assets/processed/fig3_texture.jpg' },
   { label: 'Deprocessed die -- via lattice', heightmap: '../assets/processed/fig4_height.png', texture: '../assets/processed/fig4_texture.jpg' },
   { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg' },
 ];
+window.SEM_DATASETS = SEM_DATASETS;
+window.loadSemDataset = function (index) {
+  const ds = SEM_DATASETS[index];
+  if (!ds) return;
+  const terrainComp = document.getElementById('terrain').components['sem-terrain'];
+  terrainComp.loadDataset(ds.heightmap, ds.texture);
+  const imgPlane = document.getElementById('menuImagePlane');
+  if (imgPlane) imgPlane.setAttribute('material', 'src', ds.texture);
+};
 
 const HELP_TEXT = "Real ALS beamline image: a 40nm-pitch line/space grating, magnified for walking among its rows.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom the model larger/smaller (doesn't move you)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nOn sample picker: thumbstick up/down to highlight, trigger to load";
 
@@ -153,10 +164,7 @@ AFRAME.registerComponent('menu-controller', {
   },
 
   confirmSelection() {
-    const ds = SEM_DATASETS[this.selectIndex];
-    const terrainComp = this.data.terrain.components['sem-terrain'];
-    terrainComp.loadDataset(ds.heightmap, ds.texture);
-    document.getElementById('menuImagePlane').setAttribute('material', 'src', ds.texture);
+    window.loadSemDataset(this.selectIndex);
     this.toggleMenu();
   },
 

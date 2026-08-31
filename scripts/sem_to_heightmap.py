@@ -6,14 +6,20 @@ Writes assets/processed/<output_name>_height.png (16-bit grayscale)
 and assets/processed/<output_name>_texture.jpg (cropped color/gray source).
 
 Options:
-  --no-crop            Skip info-bar detection for already-cropped sources.
-  --target-dim N        Output size on the longer side (default 2048).
-  --plateau-radius N    Grayscale-dilation radius in px (default: proportional
+  --no-crop              Skip info-bar detection for already-cropped sources.
+  --target-dim N         Output size on the longer side (default 2048).
+  --plateau-radius N     Grayscale-dilation radius in px (default: proportional
                          to output width). Use a small value (1-2) or 0 to
                          preserve fine periodic texture instead of smoothing
                          it into flat-top plateaus -- appropriate for a real
                          line/space grating where the fine structure IS the
                          real periodicity, not shading noise to clean up.
+  --binary-threshold N   Threshold (0-255) to make height strictly two-level
+                         (0 or max) instead of continuous grayscale -- every
+                         raised feature becomes a flat-top square pillar of
+                         uniform height instead of a variable-height spike.
+                         Disables plateau dilation (meaningless on a already-
+                         binary image).
 """
 import argparse
 from pathlib import Path
@@ -56,6 +62,7 @@ def main():
     parser.add_argument("--no-crop", action="store_true")
     parser.add_argument("--target-dim", type=int, default=DEFAULT_TARGET_MAX_DIM)
     parser.add_argument("--plateau-radius", type=int, default=None)
+    parser.add_argument("--binary-threshold", type=int, default=None)
     args = parser.parse_args()
 
     src_path = Path(args.input_image)
@@ -86,13 +93,32 @@ def main():
     # Sized relative to the output width so it scales with any source image
     # -- but override with --plateau-radius when the source has real fine
     # periodic structure you want preserved rather than smoothed away.
-    plateau_radius = args.plateau_radius if args.plateau_radius is not None else max(2, round(upsampled.width * 0.007))
-    if plateau_radius > 0:
-        height_arr = grey_dilation(height_arr, size=(plateau_radius * 2 + 1,) * 2)
+    if args.binary_threshold is not None:
+        # Strictly two-level: every raised pixel becomes the SAME height, so
+        # the terrain reads as flat-top square pillars instead of variable-
+        # height spikes. No dilation (there's no shading edge to spread into
+        # a plateau -- it's already binary) and only a whisper of blur, just
+        # enough to stop the mesh from aliasing on perfectly vertical edges.
+        height_arr = (height_arr > args.binary_threshold).astype(np.float32) * 255
+        height_arr = gaussian_filter(height_arr, sigma=0.4)
+        plateau_radius = 0
+    else:
+        # Oblique SEM shots light the edge of a raised feature brightly and leave
+        # the rest of its top surface a similar mid-gray to the trench floor —
+        # using brightness as height directly turns those edges into thin knife
+        # spikes rather than the flat-top ridges the real structure has. Grayscale
+        # dilation spreads each bright edge into a plateau spanning roughly one
+        # structure width, which reads as a walkable flat-top wall instead.
+        # Sized relative to the output width so it scales with any source image
+        # -- but override with --plateau-radius when the source has real fine
+        # periodic structure you want preserved rather than smoothed away.
+        plateau_radius = args.plateau_radius if args.plateau_radius is not None else max(2, round(upsampled.width * 0.007))
+        if plateau_radius > 0:
+            height_arr = grey_dilation(height_arr, size=(plateau_radius * 2 + 1,) * 2)
 
-    # Light final smoothing to soften the plateau's corners — this is just
-    # anti-aliasing, not the main shaping step, so keep it small.
-    height_arr = gaussian_filter(height_arr, sigma=1.0)
+        # Light final smoothing to soften the plateau's corners — this is just
+        # anti-aliasing, not the main shaping step, so keep it small.
+        height_arr = gaussian_filter(height_arr, sigma=1.0)
 
     # Normalize full range and encode as 16-bit for smoother displacement steps.
     height_arr -= height_arr.min()
