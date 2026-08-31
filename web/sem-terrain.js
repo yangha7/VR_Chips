@@ -48,6 +48,13 @@ AFRAME.registerComponent('sem-terrain', {
     canvas.width = resX;
     canvas.height = resY;
     const ctx = canvas.getContext('2d');
+    // Default smoothing blends source pixels when this draw scales the
+    // heightmap down to the mesh's sample grid -- fine for continuous
+    // grayscale data, but it reintroduces in-between gray values at the
+    // edges of an intentionally-binary (0/max) source, undoing a strict
+    // two-level height map. Nearest-neighbor keeps each sample a clean
+    // pick from the source instead of a blend.
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, 0, 0, resX, resY);
     const pixels = ctx.getImageData(0, 0, resX, resY).data;
 

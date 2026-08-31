@@ -1,14 +1,16 @@
 /* global AFRAME */
 
-window.DESKTOP_PREVIEW_VERSION = 1;
+window.DESKTOP_PREVIEW_VERSION = 2;
 
 // A plain-HTML overlay (outside the A-Frame scene entirely) so this app can
 // be reviewed from a normal desktop browser without ever putting on the
 // headset -- WASD + mouse-drag to move/look are already free from A-Frame's
-// wasd-controls/look-controls on the camera; this adds the two things that
-// otherwise only exist as VR-controller actions (grip menu, thumbstick
-// zoom): a clickable dataset list, and scroll-wheel to scale the model.
-// Harmless in the headset too -- this DOM overlay isn't part of the
+// wasd-controls/look-controls on the camera, but that's horizontal-plane
+// movement only (no vertical component, unlike VR's point-and-fly which can
+// climb). This adds the things that otherwise only exist as VR-controller
+// actions: Q/E to scale the model (mirrors thumbstick zoom), Z/X to move
+// vertically (mirrors pointing up/down + trigger), and a clickable dataset
+// list. Harmless in the headset too -- this DOM overlay isn't part of the
 // rendered WebXR view, only the flat pre-VR page.
 document.addEventListener('DOMContentLoaded', () => {
   const panel = document.createElement('div');
@@ -21,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
   panel.innerHTML =
     '<div style="font-weight:bold; margin-bottom:6px;">Desktop preview</div>' +
     '<div style="opacity:0.85; margin-bottom:8px; line-height:1.4;">' +
-    'Click the scene, then WASD + mouse-drag to move/look. Scroll wheel: scale the model.</div>' +
+    'Click the scene, then WASD + mouse-drag to move/look.<br>' +
+    'Q / E: scale model down/up -- Z / X: move down/up.</div>' +
     '<div id="desktop-dataset-buttons"></div>';
   document.body.appendChild(panel);
 
@@ -37,14 +40,42 @@ document.addEventListener('DOMContentLoaded', () => {
     buttonContainer.appendChild(btn);
   });
 
-  const sceneEl = document.querySelector('a-scene');
-  sceneEl.addEventListener('wheel', (evt) => {
-    evt.preventDefault();
+  function scaleTerrain(factor) {
     const terrainEl = document.getElementById('terrain');
     if (!terrainEl) return;
     const scaleObj = terrainEl.object3D.scale;
-    const factor = evt.deltaY < 0 ? 1.08 : 0.93;
     const next = Math.min(4, Math.max(0.2, scaleObj.x * factor));
     scaleObj.set(next, next, next);
+  }
+
+  const sceneEl = document.querySelector('a-scene');
+  sceneEl.addEventListener('wheel', (evt) => {
+    evt.preventDefault();
+    scaleTerrain(evt.deltaY < 0 ? 1.08 : 0.93);
   }, { passive: false });
+
+  // Continuous while held, like the VR controls this mirrors -- a single
+  // keydown-triggered step would feel nothing like holding a thumbstick.
+  const pressedKeys = {};
+  window.addEventListener('keydown', (evt) => { pressedKeys[evt.key.toLowerCase()] = true; });
+  window.addEventListener('keyup', (evt) => { pressedKeys[evt.key.toLowerCase()] = false; });
+
+  const VERTICAL_SPEED = 3; // m/s, matches fly-controls' flySpeed
+  const ZOOM_RATE = 0.8; // per second, matches fly-controls' zoomSpeed feel
+  let lastTime = null;
+  function tick(time) {
+    if (lastTime !== null) {
+      const dt = (time - lastTime) / 1000;
+      const cameraRig = document.getElementById('cameraRig');
+      if (cameraRig) {
+        if (pressedKeys['z']) cameraRig.object3D.position.y -= VERTICAL_SPEED * dt;
+        if (pressedKeys['x']) cameraRig.object3D.position.y += VERTICAL_SPEED * dt;
+      }
+      if (pressedKeys['q']) scaleTerrain(1 - ZOOM_RATE * dt);
+      if (pressedKeys['e']) scaleTerrain(1 + ZOOM_RATE * dt);
+    }
+    lastTime = time;
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 });
