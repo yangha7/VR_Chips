@@ -148,8 +148,11 @@ AFRAME.registerComponent('menu-controller', {
     this.prevAxisX = axisX;
 
     if (this.page === 2) {
-      if (this.prevAxisY <= 0.6 && axisY > 0.6) this.moveSelection(-1);
-      if (this.prevAxisY >= -0.6 && axisY < -0.6) this.moveSelection(1);
+      // axisY negative = stick pushed up (standard convention) -- that
+      // should move the highlight to the PREVIOUS (higher-up) row, not
+      // the next one. Was backwards.
+      if (this.prevAxisY <= 0.6 && axisY > 0.6) this.moveSelection(1);
+      if (this.prevAxisY >= -0.6 && axisY < -0.6) this.moveSelection(-1);
     }
     this.prevAxisY = axisY;
   },

@@ -11,10 +11,10 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=23"></script>
-  <script src="fly-controls.js?v=23"></script>
-  <script src="menu-controller.js?v=23"></script>
-  <script src="desktop-preview.js?v=23"></script>
+  <script src="sem-terrain.js?v=24"></script>
+  <script src="fly-controls.js?v=24"></script>
+  <script src="menu-controller.js?v=24"></script>
+  <script src="desktop-preview.js?v=24"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -135,7 +135,13 @@
     </a-entity>
 
     <a-entity id="cameraRig" position="0 0 0">
-      <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls></a-camera>
+      <!-- pointerLockEnabled: default desktop look-controls rotates from
+           absolute mouse position, capped by the browser window's edges --
+           you physically can't drag far enough to turn all the way around.
+           Pointer lock makes mouse movement relative (like a normal FPS
+           camera) so a full 360 turn is possible; click the scene once to
+           engage it. -->
+      <a-camera id="camera" position="0 1.6 0" look-controls="pointerLockEnabled: true" wasd-controls></a-camera>
       <a-entity id="leftHand" laser-controls="hand: left" oculus-touch-controls="hand: left; model: false"
                 raycaster="objects: .ground; far: 60" line="color: gold; opacity: 0.75"
                 fly-controls="cameraRig: #cameraRig; camera: #camera; terrain: #terrain"
