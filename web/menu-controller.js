@@ -1,18 +1,18 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 12;
+window.MENU_CONTROLLER_VERSION = 13;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
 const SEM_DATASETS = [
+  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png', texture: '../assets/processed/als_grating_texture.jpg' },
   { label: 'MEMS comb-drive actuator', heightmap: '../assets/processed/comb_height.png', texture: '../assets/processed/comb_texture.jpg' },
   { label: 'Deprocessed die -- routing', heightmap: '../assets/processed/fig3_height.png', texture: '../assets/processed/fig3_texture.jpg' },
   { label: 'Deprocessed die -- via lattice', heightmap: '../assets/processed/fig4_height.png', texture: '../assets/processed/fig4_texture.jpg' },
   { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg' },
-  { label: 'ALS 40nm line/space grating (real data)', heightmap: '../assets/processed/als_grating_height.png', texture: '../assets/processed/als_grating_texture.jpg' },
 ];
 
-const HELP_TEXT = "SEM image of a MEMS comb-drive actuator, magnified ~1000x.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom the model larger/smaller (doesn't move you)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nTrigger: confirm on the sample-picker page";
+const HELP_TEXT = "Real ALS beamline image: a 40nm-pitch line/space grating, magnified for walking among its rows.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom the model larger/smaller (doesn't move you)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nOn sample picker: thumbstick up/down to highlight, trigger to load";
 
 AFRAME.registerComponent('menu-controller', {
   schema: {
@@ -142,8 +142,8 @@ AFRAME.registerComponent('menu-controller', {
   },
 
   renderDatasetList() {
-    const lines = SEM_DATASETS.map((d, i) => (i === this.selectIndex ? '> ' : '   ') + d.label);
-    lines.push('', '(trigger to load)');
+    const lines = ['Thumbstick up/down: highlight -- Trigger: load', ''];
+    lines.push(...SEM_DATASETS.map((d, i) => (i === this.selectIndex ? '> ' : '   ') + d.label));
     document.getElementById('menuPageDatasets').setAttribute('text', 'value', lines.join('\n'));
   },
 

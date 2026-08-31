@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>VR Chips — Comb Structure v1</title>
+  <title>VR Chips</title>
   <script src="libs/aframe.min.js"></script>
   <!-- aframe-extras.min.js removed: nothing in this app uses any of its
        components anymore (movement-controls was dropped a while back),
@@ -11,9 +11,9 @@
   <!-- Cache-bust these two on every deploy (bump ?v=N) -- the headset
        browser has repeatedly kept serving a stale cached copy of these
        after a plain reload, which looks identical to an actual bug. -->
-  <script src="sem-terrain.js?v=18"></script>
-  <script src="fly-controls.js?v=18"></script>
-  <script src="menu-controller.js?v=18"></script>
+  <script src="sem-terrain.js?v=19"></script>
+  <script src="fly-controls.js?v=19"></script>
+  <script src="menu-controller.js?v=19"></script>
   <script>
     const log = [];
     function report(msg) {
@@ -83,13 +83,13 @@
     <a-plane class="ground" rotation="-90 0 0" width="200" height="200"
              position="0 0 0" material="color: #3a3a3a; shader: flat"></a-plane>
 
-    <!-- The real structure: SEM comb-drive image turned into a walkable relief.
-         Dark trench pixels sit near floor level; bright ridge edges from the
-         oblique SEM shot rise up as walls between the comb fingers. -->
+    <!-- The real structure: real ALS beamline image of a 40nm-pitch
+         line/space grating, turned into a walkable relief. Dark trench
+         pixels sit near floor level; bright ridge edges rise up as walls. -->
     <a-entity id="terrain" class="ground"
               position="0 0.01 -20"
-              sem-terrain="heightmap: ../assets/processed/comb_height.png;
-                           texture: ../assets/processed/comb_texture.jpg;
+              sem-terrain="heightmap: ../assets/processed/als_grating_height.png;
+                           texture: ../assets/processed/als_grating_texture.jpg;
                            width: 34; maxHeight: 5; resolution: 260">
     </a-entity>
 
@@ -115,7 +115,7 @@
       <a-entity id="menuPageImage" position="0 0 0.01" visible="false">
         <a-entity id="menuImagePlane"
                   geometry="primitive: plane; width: 3.6; height: 2.2"
-                  material="src: ../assets/processed/comb_texture.jpg; shader: flat"></a-entity>
+                  material="src: ../assets/processed/als_grating_texture.jpg; shader: flat"></a-entity>
       </a-entity>
 
       <a-entity id="menuPageDatasets" position="0 0.1 0.01" visible="false"
