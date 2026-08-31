@@ -1,6 +1,6 @@
 /* global AFRAME, THREE */
 
-window.MENU_CONTROLLER_VERSION = 14;
+window.MENU_CONTROLLER_VERSION = 15;
 
 // Selectable SEM datasets for the terrain. Add more here as they're
 // processed via scripts/sem_to_heightmap.py -- no other code changes needed.
@@ -24,6 +24,19 @@ window.loadSemDataset = function (index) {
 };
 
 const HELP_TEXT = "Real ALS beamline image: a 40nm-pitch line/space grating, magnified for walking among its rows.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom the model larger/smaller (doesn't move you)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nOn sample picker: thumbstick up/down to highlight, trigger to load";
+
+// Standalone rounded-rect path -- avoids relying on the newer
+// CanvasRenderingContext2D.prototype.roundRect() convenience method that
+// isn't guaranteed on every WebXR browser; arcTo() is long-established.
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
 
 AFRAME.registerComponent('menu-controller', {
   schema: {
@@ -105,16 +118,21 @@ AFRAME.registerComponent('menu-controller', {
     const camWorldY = rigPos.y + camLocalPos.y;
     const camWorldZ = rigPos.z + camLocalPos.z;
 
+    // Full 3D gaze direction (not flattened) -- the menu should appear
+    // exactly where you're looking, up/down included, not just "in front
+    // and level" while you have to tilt your head to find it.
     const dir = new THREE.Vector3();
     this.data.camera.object3D.getWorldDirection(dir); // already proven safe elsewhere in this app
-    dir.y = 0;
     if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1);
     dir.normalize();
 
+    const distance = 1.0; // closer than before, matching the smaller panel
     const menuObj = this.data.menu.object3D;
-    menuObj.position.set(camWorldX + dir.x * 1.6, camWorldY, camWorldZ + dir.z * 1.6);
+    menuObj.position.set(camWorldX + dir.x * distance, camWorldY + dir.y * distance, camWorldZ + dir.z * distance);
 
-    // Face the plane's front (+Z) back toward the camera.
+    // Keep the panel itself upright (only yaw, no pitch/roll) so text
+    // doesn't render at an odd angle -- face its front (+Z) back toward
+    // the camera's horizontal position.
     const dx = camWorldX - menuObj.position.x;
     const dz = camWorldZ - menuObj.position.z;
     menuObj.rotation.set(0, Math.atan2(dx, dz), 0);
@@ -145,22 +163,83 @@ AFRAME.registerComponent('menu-controller', {
     document.getElementById('menuPageHelp').setAttribute('visible', this.page === 0);
     document.getElementById('menuPageImage').setAttribute('visible', this.page === 1);
     document.getElementById('menuPageDatasets').setAttribute('visible', this.page === 2);
-    if (this.page === 2) this.renderDatasetList();
+    if (this.page === 2) this.drawDatasetPanel();
   },
 
   renderHelpPage() {
     document.getElementById('menuPageHelp').setAttribute('text', 'value', HELP_TEXT);
   },
 
-  renderDatasetList() {
-    const lines = ['Thumbstick up/down: highlight -- Trigger: load', ''];
-    lines.push(...SEM_DATASETS.map((d, i) => (i === this.selectIndex ? '> ' : '   ') + d.label));
-    document.getElementById('menuPageDatasets').setAttribute('text', 'value', lines.join('\n'));
+  // Canvas-drawn chip list instead of a plain "> "-prefixed text block --
+  // rounded rows, a highlighted fill for the current selection, and a
+  // checkbox-style indicator, roughly matching the look of this project's
+  // other floating VR menu (X-ray_Diffraction_Simulator/phone_vr.html).
+  drawDatasetPanel() {
+    if (!this.datasetCanvas) {
+      this.datasetCanvas = document.createElement('canvas');
+      this.datasetCanvas.width = 720;
+      this.datasetCanvas.height = 460;
+      this.datasetTexture = new THREE.CanvasTexture(this.datasetCanvas);
+      this.datasetTexture.colorSpace = THREE.SRGBColorSpace;
+    }
+
+    const canvas = this.datasetCanvas;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.fillStyle = '#333333';
+    ctx.font = '22px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Thumbstick up/down: highlight  --  Trigger: load', 16, 22);
+
+    const top = 52;
+    const gap = 12;
+    const n = SEM_DATASETS.length;
+    const rowH = (H - top - gap * (n - 1)) / n;
+
+    SEM_DATASETS.forEach((ds, i) => {
+      const y = top + i * (rowH + gap);
+      const selected = i === this.selectIndex;
+
+      roundRectPath(ctx, 12, y, W - 24, rowH, 14);
+      ctx.fillStyle = selected ? '#1f6feb' : '#e9e9e9';
+      ctx.fill();
+
+      // Checkbox-style indicator.
+      const cx = 12 + 26;
+      const cy = y + rowH / 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = selected ? '#1f6feb' : '#999999';
+      ctx.stroke();
+      if (selected) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#1f6feb';
+        ctx.fill();
+      }
+
+      ctx.fillStyle = selected ? '#ffffff' : '#222222';
+      ctx.font = selected ? 'bold 22px sans-serif' : '22px sans-serif';
+      ctx.fillText(ds.label, cx + 26, cy);
+    });
+
+    this.datasetTexture.needsUpdate = true;
+    const mesh = document.getElementById('menuPageDatasets').getObject3D('mesh');
+    if (mesh) {
+      mesh.material.map = this.datasetTexture;
+      mesh.material.needsUpdate = true;
+    }
   },
 
   moveSelection(delta) {
     this.selectIndex = (this.selectIndex + delta + SEM_DATASETS.length) % SEM_DATASETS.length;
-    this.renderDatasetList();
+    this.drawDatasetPanel();
   },
 
   confirmSelection() {
