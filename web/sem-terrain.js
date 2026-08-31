@@ -14,7 +14,31 @@ AFRAME.registerComponent('sem-terrain', {
 
   init() {
     this.pendingChunk = null;
-    this.loadDataset(this.data.heightmap, this.data.texture);
+
+    // Switching datasets now reloads the whole page (see menu-controller.js)
+    // rather than hot-swapping the mesh in place -- an in-VR rebuild kept
+    // stalling in ways specific to an active immersive session (first a
+    // long main-thread block, then a chunked fill whose continuation via
+    // window.requestAnimationFrame silently stopped firing once presenting
+    // took over the frame loop). A reload re-enters through the exact path
+    // that's always worked reliably: a fresh page load. The chosen dataset
+    // survives the reload via sessionStorage and overrides whatever's
+    // hardcoded on this entity in index.html.
+    const override = this.getStoredOverride();
+    const heightmapSrc = override ? override.heightmap : this.data.heightmap;
+    const textureSrc = override ? override.texture : this.data.texture;
+    this.loadDataset(heightmapSrc, textureSrc);
+  },
+
+  // Keep in sync with DATASET_STORAGE_KEY in menu-controller.js.
+  getStoredOverride() {
+    try {
+      const raw = sessionStorage.getItem('vrChipsDatasetIndex');
+      if (raw === null || !window.SEM_DATASETS) return null;
+      return window.SEM_DATASETS[parseInt(raw, 10)] || null;
+    } catch (e) {
+      return null; // sessionStorage can throw in locked-down/private-browsing contexts
+    }
   },
 
   // Advances the chunked mesh-fill (see build()) once per rendered frame.
@@ -24,14 +48,13 @@ AFRAME.registerComponent('sem-terrain', {
   // immersive session is presenting -- the plain window-level rAF used
   // previously stops firing at that point, which silently stalled every
   // in-VR dataset switch partway through (mesh never finished building, so
-  // it never swapped in).
+  // it never swapped in). Still used for the initial page-load build.
   tick() {
     if (this.pendingChunk) this.pendingChunk();
   },
 
-  // Swaps in a different SEM image at runtime (used by the dataset-picker
-  // menu). Depth is derived from the new image's aspect ratio each time,
-  // so different source images don't come out stretched.
+  // Loads a SEM image (used both for the initial page-load build and,
+  // historically, for in-place swaps -- now only the former; see init()).
   loadDataset(heightmapSrc, textureSrc) {
     const img = new Image();
     img.crossOrigin = 'anonymous';

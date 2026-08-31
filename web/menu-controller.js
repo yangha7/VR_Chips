@@ -14,13 +14,34 @@ const SEM_DATASETS = [
   { label: 'Deprocessed die -- mixed array', heightmap: '../assets/processed/fig6_height.png', texture: '../assets/processed/fig6_texture.jpg' },
 ];
 window.SEM_DATASETS = SEM_DATASETS;
+
+// Keep in sync with sem-terrain.js's getStoredOverride().
+const DATASET_STORAGE_KEY = 'vrChipsDatasetIndex';
+
+function getStoredDatasetIndex() {
+  try {
+    const raw = sessionStorage.getItem(DATASET_STORAGE_KEY);
+    const idx = raw === null ? 0 : parseInt(raw, 10);
+    return idx >= 0 && idx < SEM_DATASETS.length ? idx : 0;
+  } catch (e) {
+    return 0; // sessionStorage can throw in locked-down/private-browsing contexts
+  }
+}
+
+// Rebuilding the terrain mesh in place turned out to be unreliable once
+// actually inside a WebXR session (see sem-terrain.js's history) -- a full
+// reload re-enters through the one path that's always worked cleanly: a
+// fresh page load. The chosen dataset survives the reload via
+// sessionStorage and sem-terrain.js picks it up in its own init().
 window.loadSemDataset = function (index) {
-  const ds = SEM_DATASETS[index];
-  if (!ds) return;
-  const terrainComp = document.getElementById('terrain').components['sem-terrain'];
-  terrainComp.loadDataset(ds.heightmap, ds.texture);
-  const imgPlane = document.getElementById('menuImagePlane');
-  if (imgPlane) imgPlane.setAttribute('material', 'src', ds.texture);
+  if (!SEM_DATASETS[index]) return;
+  try {
+    sessionStorage.setItem(DATASET_STORAGE_KEY, String(index));
+  } catch (e) {
+    // Nothing we can do without storage -- reload would just come back to
+    // the default dataset, but that's still a working state, not a crash.
+  }
+  location.reload();
 };
 
 const HELP_TEXT = "Real ALS beamline image: a 40nm-pitch line/space grating, magnified for walking among its rows.\n\nCONTROLS\nHold trigger: fly toward where you're pointing\nThumbstick up/down: zoom the model larger/smaller (doesn't move you)\nGrip: open/close this menu\nThumbstick left/right: switch this menu's page\nOn sample picker: thumbstick up/down to highlight, trigger to load";
@@ -48,7 +69,10 @@ AFRAME.registerComponent('menu-controller', {
 
   init() {
     this.page = 0;
-    this.selectIndex = 0;
+    // Restored so the picker highlights whichever dataset is actually
+    // loaded (relevant right after the reload that loadSemDataset() now
+    // triggers) instead of always resetting to the first row.
+    this.selectIndex = getStoredDatasetIndex();
     this.prevAxisX = 0;
     this.prevAxisY = 0;
     this.prevTriggerPressed = false;
@@ -58,6 +82,11 @@ AFRAME.registerComponent('menu-controller', {
 
     this.el.addEventListener('gripdown', this.onGripDown);
     this.el.addEventListener('axismove', this.onAxisMove);
+
+    // The image page also defaults to the ALS grating texture in
+    // index.html -- match it to whatever dataset actually got loaded.
+    const imgPlane = document.getElementById('menuImagePlane');
+    if (imgPlane) imgPlane.setAttribute('material', 'src', SEM_DATASETS[this.selectIndex].texture);
 
     this.renderHelpPage();
   },
@@ -246,8 +275,10 @@ AFRAME.registerComponent('menu-controller', {
   },
 
   confirmSelection() {
+    // loadSemDataset() now reloads the page (see its definition above), so
+    // there's no menu left to close afterward -- the whole scene is about
+    // to be torn down and rebuilt fresh.
     window.loadSemDataset(this.selectIndex);
-    this.toggleMenu();
   },
 
   remove() {
